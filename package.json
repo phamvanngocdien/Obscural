@@ -1,0 +1,36 @@
+{
+  "name": "obscural",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Smart Invoice & Payment Platform on Rialo Protocol — hybrid Web3 invoicing with AI agents, escrow vaults, and on-chain settlement",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "node --watch server/src/index.js",
+    "dev:all": "start /B npm run dev & npm run dev:server",
+    "server": "node server/src/index.js",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@privy-io/react-auth": "^3.33.1",
+    "@supabase/supabase-js": "^2.108.2",
+    "chart.js": "^4.5.1",
+    "ethers": "^6.17.0",
+    "jspdf": "^4.2.1",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.7",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "oxlint": "^1.69.0",
+    "vite": "^8.1.0"
+  }
+}

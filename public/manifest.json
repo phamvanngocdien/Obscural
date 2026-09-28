@@ -1,0 +1,20 @@
+{
+  "name": "Obscural",
+  "short_name": "Obscural",
+  "description": "Smart Blockchain Invoice & Payment Platform with AI Agents",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0a0a12",
+  "theme_color": "#6C5CE7",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business", "productivity"],
+  "lang": "en"
+}

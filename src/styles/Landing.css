@@ -1,0 +1,647 @@
+/* ========================================
+   Landing Page — Immersive Celestial Horizon
+   Obscural Modern Immersive Showcase & Platform Overview
+   ======================================== */
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+  background-color: transparent; /* Living Immersive Canvas shows through */
+}
+
+/* ── Top Header ── */
+.landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(7, 9, 19, 0.75);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.landing-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-6);
+}
+
+.landing-logo-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  transition: transform var(--transition-fast);
+}
+
+.landing-logo-group:hover {
+  transform: scale(1.02);
+}
+
+.landing-logo-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(159, 140, 255, 0.4));
+}
+
+.landing-logo-name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #FFFFFF 0%, #CCD3EE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.landing-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.landing-header-btn {
+  position: relative;
+  padding: 7px var(--space-4);
+  background: var(--color-primary);
+  color: #070913;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  font-family: var(--font-primary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: 0 2px 10px rgba(159, 140, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.landing-header-btn:hover {
+  background: var(--color-primary-light);
+  box-shadow: 0 4px 18px rgba(159, 140, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ── Content Container ── */
+.landing-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+/* ── 1. Hero Section ── */
+.landing-hero-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-16) 0 var(--space-6);
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.landing-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 5px var(--space-4);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: fadeInUp 0.4s var(--ease-spring);
+  letter-spacing: -0.01em;
+}
+
+.landing-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  animation: livePulse 2.2s infinite;
+}
+
+.landing-title {
+  font-family: var(--font-display);
+  font-size: clamp(3.2rem, 9vw, 5.5rem);
+  font-weight: 800;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #DFE4FA 60%, #9F8CFF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--space-6);
+  filter: drop-shadow(0 4px 24px rgba(159, 140, 255, 0.15));
+  animation: fadeInUp 0.5s var(--ease-spring) 0.08s both;
+}
+
+.landing-desc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-8);
+  animation: fadeInUp 0.5s var(--ease-spring) 0.16s both;
+}
+
+.landing-desc {
+  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Immersive Specular CTA Card */
+.landing-cta-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  box-shadow: var(--shadow-lg), 0 0 30px rgba(159, 140, 255, 0.08);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  animation: fadeInUp 0.5s var(--ease-spring) 0.24s both;
+  transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.landing-cta-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+}
+
+.landing-cta-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-xl), 0 0 40px rgba(159, 140, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+.landing-cta-text {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.landing-cta-sub {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-3);
+}
+
+.landing-launch-btn {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  padding: 11px var(--space-6);
+  background: var(--color-primary);
+  color: #070913;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-family: var(--font-primary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: 0 3px 12px rgba(159, 140, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-align: center;
+}
+
+.landing-launch-btn:hover {
+  background: var(--color-primary-light);
+  box-shadow: 0 6px 22px rgba(159, 140, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.landing-launch-btn:active {
+  transform: translateY(0);
+}
+
+/* ── 2. Protocol Telemetry Metrics ── */
+.landing-metrics-section {
+  width: 100%;
+}
+
+.landing-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+.landing-metric-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.landing-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+}
+
+.landing-metric-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-md), 0 0 16px rgba(159, 140, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.landing-metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.landing-metric-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 1.85rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: var(--space-1) 0;
+}
+
+.landing-metric-sub {
+  font-size: 11px;
+  color: var(--color-primary-light);
+  font-weight: 500;
+}
+
+/* ── Section Headers ── */
+.landing-section-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.landing-section-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-primary-light);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  background: var(--color-primary-subtle);
+  padding: 3px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(159, 140, 255, 0.2);
+}
+
+.landing-section-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.landing-section-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  max-width: 580px;
+  line-height: 1.5;
+}
+
+/* ── 3. Features Bento Grid ── */
+.landing-features-section {
+  width: 100%;
+}
+
+.landing-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.landing-feature-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.landing-feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+}
+
+.landing-feature-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-lg), 0 0 24px rgba(159, 140, 255, 0.15);
+  transform: translateY(-3px);
+}
+
+.landing-feature-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.landing-feature-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-xs);
+  background: var(--color-primary-subtle);
+  border: 1px solid rgba(159, 140, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary-light);
+  transition: transform var(--transition-fast);
+}
+
+.landing-feature-card:hover .landing-feature-icon-box {
+  transform: scale(1.06);
+  border-color: var(--color-primary);
+}
+
+.landing-feature-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-success);
+  background: var(--color-success-light);
+  border: 1px solid rgba(126, 231, 189, 0.3);
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.landing-feature-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: var(--space-2);
+  display: block;
+}
+
+.landing-feature-title {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+  margin-bottom: var(--space-2);
+  line-height: 1.3;
+}
+
+.landing-feature-desc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ── 4. Workflow Section ── */
+.landing-workflow-section {
+  width: 100%;
+}
+
+.landing-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.landing-workflow-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.landing-workflow-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+}
+
+.landing-workflow-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-md), 0 0 20px rgba(159, 140, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.landing-workflow-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: var(--color-primary-light);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.03em;
+  display: inline-block;
+}
+
+.landing-workflow-title {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+  margin-bottom: var(--space-2);
+}
+
+.landing-workflow-desc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ── 5. Bottom Action Cockpit ── */
+.landing-bottom-cockpit {
+  width: 100%;
+}
+
+.landing-cockpit-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid rgba(159, 140, 255, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-8) var(--space-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  box-shadow: var(--shadow-lg), 0 0 36px rgba(159, 140, 255, 0.12);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.landing-cockpit-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+}
+
+.landing-cockpit-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 540px;
+}
+
+.landing-cockpit-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-primary-light);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.landing-cockpit-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.landing-cockpit-desc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ── Footer ── */
+.landing-footer {
+  position: relative;
+  z-index: 1;
+  padding: var(--space-8) var(--space-6) var(--space-10);
+  margin-top: var(--space-16);
+}
+
+.landing-footer-line {
+  height: 1px;
+  background: var(--border-subtle);
+  margin-bottom: var(--space-4);
+  max-width: 1040px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.landing-footer-text {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .landing-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .landing-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .landing-content {
+    padding: 0 var(--space-4);
+    gap: var(--space-12);
+  }
+  .landing-features-grid,
+  .landing-workflow-grid,
+  .landing-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  .landing-cockpit-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-6);
+  }
+  .landing-launch-btn {
+    max-width: 100%;
+  }
+}

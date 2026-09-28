@@ -1,0 +1,545 @@
+/* ========================================
+   CSS Variables & Design Tokens — Obscural Immersive Design
+   Celestial Night · Living Spatial Canvas · Sharp Bento Geometry · Specular Glass
+   ======================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* ── Vitael-Inspired Celestial Palette ── */
+  --color-primary: #9F8CFF;
+  --color-primary-dark: #826EFF;
+  --color-primary-light: #BDA7FF;
+  --color-primary-subtle: rgba(159, 140, 255, 0.08);
+  --color-primary-glow: rgba(159, 140, 255, 0.25);
+  
+  --color-secondary: #7EE7BD;
+  --color-accent: #38BDF8;
+
+  /* ── Semantic Colors (Vitael Standards) ── */
+  --color-success: #7EE7BD;
+  --color-success-light: rgba(126, 231, 189, 0.1);
+  --color-warning: #FFD641;
+  --color-warning-light: rgba(255, 214, 65, 0.1);
+  --color-error: #FF494A;
+  --color-error-light: rgba(255, 73, 74, 0.1);
+  --color-info: #9F8CFF;
+  --color-info-light: rgba(159, 140, 255, 0.1);
+
+  /* ── Gradients ── */
+  --gradient-primary: linear-gradient(135deg, #BDA7FF 0%, #826EFF 100%);
+  --gradient-accent: linear-gradient(135deg, #9F8CFF 0%, #7EE7BD 100%);
+  --gradient-card: linear-gradient(180deg, rgba(17, 21, 41, 0.85) 0%, rgba(10, 13, 26, 0.95) 100%);
+  --gradient-shimmer: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  --gradient-title: linear-gradient(180deg, #FFFFFF 0%, #DFE4FA 70%, #9F8CFF 100%);
+
+  /* ── Deep Celestial Dark Backgrounds ── */
+  --bg-main: #070913;
+  --bg-secondary: #0D1022;
+  --bg-tertiary: #13172E;
+  --bg-card: rgba(13, 16, 34, 0.82);
+  --bg-card-hover: rgba(19, 23, 46, 0.92);
+  --bg-card-solid: #0D1022;
+  --bg-glass: rgba(255, 255, 255, 0.025);
+  --bg-glass-hover: rgba(255, 255, 255, 0.055);
+  --bg-sidebar: rgba(9, 11, 25, 0.9);
+  --bg-input: #0A0D1D;
+  --bg-input-focus: #0F1329;
+
+  /* ── Typography ── */
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-primary: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #A9AEC5;
+  --text-tertiary: #737B9B;
+  --text-muted: #4B5270;
+  --text-inverse: #070913;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+
+  --leading-none: 1;
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* ── Spacing ── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ── Sharp & Angular Geometry (Obscural Sharp Mode) ── */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --radius-full: 9999px;
+
+  /* ── Hairline Sharp Borders & Specular Accents ── */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-medium: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-focus: rgba(159, 140, 255, 0.6);
+  --border-accent: rgba(159, 140, 255, 0.28);
+  --border-specular: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  /* ── Layout ── */
+  --sidebar-width: 260px;
+  --max-content-width: 1100px;
+
+  /* ── Z-index ── */
+  --z-bg: 0;
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-modal-backdrop: 290;
+  --z-modal: 300;
+  --z-tooltip: 400;
+  --z-toast: 500;
+
+  /* ── Transitions & Easings ── */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 220ms var(--ease-spring);
+  --transition-slow: 360ms var(--ease-spring);
+
+  /* ── Immersive Multi-Tier Shadows ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --shadow-glow: 0 0 30px rgba(159, 140, 255, 0.22);
+}
+
+/* ========================================
+   Global Reset
+   ======================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-primary);
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: var(--bg-main);
+  position: relative;
+}
+
+/* ========================================
+   Immersive Living Canvas & Atmospheric Layers
+   ======================================== */
+
+.immersive-bg-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-bg);
+  overflow: hidden;
+  background-color: var(--bg-main);
+}
+
+.immersive-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.immersive-grid-layer {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 20%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 20%, transparent 80%);
+  opacity: 0.85;
+}
+
+.immersive-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 40%, rgba(7, 9, 19, 0.75) 100%);
+}
+
+.immersive-ambient-glow-1 {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(159, 140, 255, 0.1) 0%, rgba(130, 110, 255, 0.03) 50%, transparent 75%);
+  filter: blur(100px);
+  animation: ambientFloat 16s ease-in-out infinite alternate;
+}
+
+.immersive-ambient-glow-2 {
+  position: absolute;
+  bottom: -15%;
+  right: 15%;
+  width: 600px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(126, 231, 189, 0.06) 0%, rgba(56, 189, 248, 0.02) 45%, transparent 70%);
+  filter: blur(110px);
+  animation: ambientFloat 20s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes ambientFloat {
+  0% { transform: translate(-50%, 0) scale(1); }
+  50% { transform: translate(-45%, 30px) scale(1.06); }
+  100% { transform: translate(-55%, -20px) scale(0.96); }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* ========================================
+   Sharp & Clean Typography & Eyebrows
+   ======================================== */
+
+.heading-1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 800;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.035em;
+  background: var(--gradient-title);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.heading-2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.025em;
+}
+
+.heading-3 {
+  font-family: var(--font-primary);
+  font-size: clamp(1.125rem, 2vw, 1.35rem);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.015em;
+}
+
+.heading-4 {
+  font-family: var(--font-primary);
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.mono-text {
+  font-family: var(--font-mono);
+}
+
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Vitael Eyebrow / Mini-label */
+.mini-label, .eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  display: block;
+}
+
+/* ========================================
+   Immersive Specular Bento Card
+   ======================================== */
+.cyber-card, .card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.cyber-card::before, .card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  pointer-events: none;
+}
+
+.cyber-card:hover, .card-hover:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-lg), 0 0 20px rgba(159, 140, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Layout Utilities */
+.container {
+  width: 100%;
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+  position: relative;
+  z-index: 1;
+}
+
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+
+.grid { display: grid; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-4); }
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes livePulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(126, 231, 189, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(126, 231, 189, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(126, 231, 189, 0); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-xs);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Selection */
+::selection {
+  background: rgba(159, 140, 255, 0.35);
+  color: #FFFFFF;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* ========================================
+   Sharp Form Controls & Native Overrides
+   ======================================== */
+
+/* Remove ugly default browser number spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Custom Calendar Picker Icon for Date Inputs */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) sepia(100%) saturate(200%) hue-rotate(200deg) brightness(1.2);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Custom Select Dropdowns */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239F8CFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px !important;
+}
+
+select option {
+  background: #0D1022;
+  color: #F0F2FD;
+  padding: 8px;
+}
+
+/* Custom Checkbox */
+input[type="checkbox"]:not(.settings-switch input) {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-medium);
+  background: var(--bg-input);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+input[type="checkbox"]:not(.settings-switch input):checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23070913' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Custom Range Input */
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  outline: none;
+  cursor: pointer;
+  padding: 0 !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid #070913;
+  box-shadow: 0 0 8px rgba(159, 140, 255, 0.5);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+/* Sharp Inputs */
+input, textarea, select {
+  width: 100%;
+  padding: 8px var(--space-3);
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-primary);
+  transition: all var(--transition-fast);
+}
+
+input:focus, textarea:focus, select:focus {
+  background: var(--bg-input-focus);
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(159, 140, 255, 0.2);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+#w3a-modal, .w3a-modal, .w3a-modal__inner {
+  z-index: 99999 !important;
+}
+
+@media (max-width: 768px) {
+  .heading-1 { font-size: var(--text-3xl); }
+  .heading-2 { font-size: var(--text-2xl); }
+  .container { padding: 0 var(--space-4); }
+  .grid-3, .grid-2 { grid-template-columns: 1fr; }
+}

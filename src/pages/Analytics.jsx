@@ -1,0 +1,479 @@
+import { useState, useEffect, useRef } from 'react';
+import { Chart, registerables } from 'chart.js';
+import useAuthStore from '../store/authStore';
+import api from '../services/api';
+import '../styles/Analytics.css';
+
+Chart.register(...registerables);
+
+export default function Analytics() {
+  const { user } = useAuthStore();
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+  const [timeRange, setTimeRange] = useState('all_time');
+
+  const lineChartRef = useRef(null);
+  const donutChartRef = useRef(null);
+  const lineInstanceRef = useRef(null);
+  const donutInstanceRef = useRef(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        // Load local invoices
+        const localSaved = localStorage.getItem('obscural_local_invoices');
+        const localInvoices = localSaved ? JSON.parse(localSaved) : [];
+
+        // Load API invoices with a 5-second timeout to prevent infinite loading
+        let apiInvoices = [];
+        if (user?.address) {
+          try {
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('API timeout')), 5000)
+            );
+            const apiPromise = api.invoiceApi.list({ userId: user.address });
+            const res = await Promise.race([apiPromise, timeoutPromise]);
+            apiInvoices = res.data || [];
+          } catch (err) {
+            console.warn('Analytics: API unavailable or timed out, using local data only.', err.message);
+          }
+        }
+
+        // Merge & deduplicate
+        const seenIds = new Set(localInvoices.map(inv => inv.id));
+        const merged = [...localInvoices];
+        apiInvoices.forEach(inv => {
+          if (!seenIds.has(inv.id)) merged.push(inv);
+        });
+        merged.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
+
+        setInvoices(merged);
+      } catch (err) {
+        console.error('Failed to load analytics data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+
+    return () => controller.abort();
+  }, [user?.address]);
+
+  // Compute calculated financial telemetry
+  const totalInvoices = invoices.length;
+  const totalVolume = invoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+  
+  const paidInvoices = invoices.filter(i => i.status === 'paid');
+  const totalPaid = paidInvoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+
+  const pendingInvoices = invoices.filter(i => i.status === 'pending');
+  const totalPending = pendingInvoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+
+  const overdueInvoices = invoices.filter(i => i.status === 'overdue');
+  const totalOverdue = overdueInvoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+
+  const settlementRate = totalInvoices > 0 ? ((paidInvoices.length / totalInvoices) * 100).toFixed(1) : '100.0';
+
+  // Build Charts
+  useEffect(() => {
+    if (loading || !lineChartRef.current || !donutChartRef.current) return;
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyTotals = new Array(12).fill(0);
+    
+    invoices.forEach((inv) => {
+      const date = inv.created_at ? new Date(inv.created_at) : new Date();
+      const m = date.getMonth();
+      monthlyTotals[m] += parseFloat(inv.amount || 0);
+    });
+
+    const maxMonthlyVal = Math.max(...monthlyTotals, 0);
+
+    // Line / Area Chart
+    if (lineInstanceRef.current) lineInstanceRef.current.destroy();
+    const lineCtx = lineChartRef.current.getContext('2d');
+    const lineGradient = lineCtx.createLinearGradient(0, 0, 0, 220);
+    lineGradient.addColorStop(0, 'rgba(159, 140, 255, 0.35)');
+    lineGradient.addColorStop(0.5, 'rgba(159, 140, 255, 0.1)');
+    lineGradient.addColorStop(1, 'rgba(159, 140, 255, 0)');
+
+    lineInstanceRef.current = new Chart(lineChartRef.current, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [{
+          data: monthlyTotals,
+          borderColor: '#9F8CFF',
+          backgroundColor: lineGradient,
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: '#9F8CFF',
+          pointBorderColor: '#0D1022',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          borderWidth: 2.5,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(13, 16, 34, 0.95)',
+            titleColor: '#FFFFFF',
+            bodyColor: '#A9AEC5',
+            borderColor: 'rgba(159, 140, 255, 0.3)',
+            borderWidth: 1,
+            padding: 10,
+            boxPadding: 4,
+            callbacks: {
+              label: (context) => ` Invoiced: $${context.raw.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.03)' },
+            ticks: { color: '#737B9B', font: { size: 11, family: 'Inter' } },
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: maxMonthlyVal > 0 ? maxMonthlyVal * 1.2 : 100,
+            grid: { color: 'rgba(255, 255, 255, 0.04)' },
+            ticks: {
+              color: '#737B9B',
+              font: { size: 11, family: 'JetBrains Mono' },
+              callback: (v) => {
+                if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`;
+                return `$${v}`;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Donut Chart
+    const paidCount = invoices.filter(i => i.status === 'paid').length;
+    const pendingCount = invoices.filter(i => i.status === 'pending').length;
+    const overdueCount = invoices.filter(i => i.status === 'overdue').length;
+    const hasData = paidCount > 0 || pendingCount > 0 || overdueCount > 0;
+
+    if (donutInstanceRef.current) donutInstanceRef.current.destroy();
+    donutInstanceRef.current = new Chart(donutChartRef.current, {
+      type: 'doughnut',
+      data: {
+        labels: ['Paid', 'Pending', 'Overdue'],
+        datasets: [{
+          data: hasData ? [paidCount, pendingCount, overdueCount] : [1, 0, 0],
+          backgroundColor: hasData ? ['#7EE7BD', '#9F8CFF', '#FF494A'] : ['rgba(255, 255, 255, 0.06)'],
+          borderColor: '#0D1022',
+          borderWidth: 2,
+          hoverOffset: 4,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: hasData,
+            backgroundColor: 'rgba(13, 16, 34, 0.95)',
+            titleColor: '#FFFFFF',
+            bodyColor: '#A9AEC5',
+            borderColor: 'rgba(255, 255, 255, 0.15)',
+            borderWidth: 1,
+            padding: 8,
+          },
+        },
+      },
+    });
+
+    return () => {
+      if (lineInstanceRef.current) lineInstanceRef.current.destroy();
+      if (donutInstanceRef.current) donutInstanceRef.current.destroy();
+    };
+  }, [loading, invoices]);
+
+  // Tab Filtering
+  const tabs = [
+    { key: 'all', label: 'All Invoices', count: totalInvoices },
+    { key: 'paid', label: 'Paid', count: paidInvoices.length },
+    { key: 'pending', label: 'Pending', count: pendingInvoices.length },
+    { key: 'overdue', label: 'Overdue', count: overdueInvoices.length },
+  ];
+
+  const filteredInvoices = invoices.filter((inv) => {
+    if (activeTab === 'all') return true;
+    return inv.status === activeTab;
+  });
+
+  if (loading) {
+    return (
+      <div className="analytics-page">
+        <div className="analytics-loading">
+          <div className="spinner-ring" />
+          <span>Synchronizing telemetry stream...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="analytics-page">
+      {/* ── Top Header ── */}
+      <div className="analytics-header">
+        <div className="analytics-header-left">
+          <span className="analytics-eyebrow">FINANCIAL TELEMETRY</span>
+          <h1 className="analytics-title">Analytics & Ledger</h1>
+        </div>
+
+        <div className="analytics-time-pills">
+          <button
+            className={`analytics-time-pill ${timeRange === 'all_time' ? 'analytics-pill-active' : ''}`}
+            onClick={() => setTimeRange('all_time')}
+          >
+            All Time
+          </button>
+          <button
+            className={`analytics-time-pill ${timeRange === '30d' ? 'analytics-pill-active' : ''}`}
+            onClick={() => setTimeRange('30d')}
+          >
+            30 Days
+          </button>
+          <button
+            className={`analytics-time-pill ${timeRange === '7d' ? 'analytics-pill-active' : ''}`}
+            onClick={() => setTimeRange('7d')}
+          >
+            7 Days
+          </button>
+        </div>
+      </div>
+
+      {/* ── 4 Telemetry Metrics Cards ── */}
+      <div className="analytics-stats-grid">
+        <div className="analytics-card-stat">
+          <div className="analytics-stat-top">
+            <span className="analytics-stat-label">TOTAL VOLUME</span>
+            <span className="analytics-stat-chip chip-purple">{totalInvoices} Invoices</span>
+          </div>
+          <div className="analytics-stat-num-wrap">
+            <span className="analytics-stat-symbol">$</span>
+            <span className="analytics-stat-num">
+              {totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <span className="analytics-stat-footnote">Gross invoiced on Rialo</span>
+        </div>
+
+        <div className="analytics-card-stat">
+          <div className="analytics-stat-top">
+            <span className="analytics-stat-label">TOTAL SETTLED</span>
+            <span className="analytics-stat-chip chip-green">Paid</span>
+          </div>
+          <div className="analytics-stat-num-wrap">
+            <span className="analytics-stat-symbol">$</span>
+            <span className="analytics-stat-num stat-success">
+              {totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <span className="analytics-stat-footnote">{paidInvoices.length} transactions completed</span>
+        </div>
+
+        <div className="analytics-card-stat">
+          <div className="analytics-stat-top">
+            <span className="analytics-stat-label">OUTSTANDING</span>
+            <span className="analytics-stat-chip chip-amber">{pendingInvoices.length} Pending</span>
+          </div>
+          <div className="analytics-stat-num-wrap">
+            <span className="analytics-stat-symbol">$</span>
+            <span className="analytics-stat-num stat-warning">
+              {totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <span className="analytics-stat-footnote">Awaiting counterparty release</span>
+        </div>
+
+        <div className="analytics-card-stat">
+          <div className="analytics-stat-top">
+            <span className="analytics-stat-label">SETTLEMENT RATE</span>
+            <span className="analytics-stat-chip chip-blue">&lt;1s Finality</span>
+          </div>
+          <div className="analytics-stat-num-wrap">
+            <span className="analytics-stat-num stat-rate">
+              {settlementRate}%
+            </span>
+          </div>
+          <span className="analytics-stat-footnote">Automated escrow success</span>
+        </div>
+      </div>
+
+      {/* ── Visual Charts Bento ── */}
+      <div className="analytics-charts-bento">
+        {/* Timeline Area Chart */}
+        <div className="analytics-chart-card timeline-card">
+          <div className="analytics-card-header">
+            <div>
+              <span className="analytics-chart-eyebrow">CASH FLOW VELOCITY</span>
+              <h2 className="analytics-chart-heading">Monthly Volume Overview</h2>
+            </div>
+            <span className="analytics-chart-badge">USDT / Rialo</span>
+          </div>
+          <div className="analytics-canvas-wrap">
+            <canvas ref={lineChartRef} />
+          </div>
+        </div>
+
+        {/* Status Breakdown & Donut */}
+        <div className="analytics-chart-card status-card">
+          <div className="analytics-card-header">
+            <div>
+              <span className="analytics-chart-eyebrow">DISTRIBUTION</span>
+              <h2 className="analytics-chart-heading">Settlement Status</h2>
+            </div>
+          </div>
+
+          <div className="analytics-status-body">
+            <div className="analytics-donut-wrap">
+              <canvas ref={donutChartRef} />
+              <div className="analytics-donut-center">
+                <span className="donut-center-num">{totalInvoices}</span>
+                <span className="donut-center-lbl">Total</span>
+              </div>
+            </div>
+
+            <div className="analytics-status-legend">
+              <div className="status-legend-row">
+                <div className="status-legend-left">
+                  <span className="status-dot dot-green" />
+                  <span className="status-lbl">Paid</span>
+                </div>
+                <span className="status-val">${totalPaid.toFixed(2)} ({paidInvoices.length})</span>
+              </div>
+
+              <div className="status-legend-row">
+                <div className="status-legend-left">
+                  <span className="status-dot dot-purple" />
+                  <span className="status-lbl">Pending</span>
+                </div>
+                <span className="status-val">${totalPending.toFixed(2)} ({pendingInvoices.length})</span>
+              </div>
+
+              <div className="status-legend-row">
+                <div className="status-legend-left">
+                  <span className="status-dot dot-red" />
+                  <span className="status-lbl">Overdue</span>
+                </div>
+                <span className="status-val">${totalOverdue.toFixed(2)} ({overdueInvoices.length})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── On-Chain Invoice Ledger ── */}
+      <div className="analytics-table-section">
+        <div className="analytics-table-header">
+          <div>
+            <span className="analytics-chart-eyebrow">AUDIT TRAIL</span>
+            <h2 className="analytics-chart-heading">On-Chain Invoice Ledger</h2>
+          </div>
+
+          <div className="analytics-tabs-wrap">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`analytics-table-tab ${activeTab === tab.key ? 'tab-active' : ''}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+                <span className="tab-count-chip">{tab.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="analytics-table-container">
+          <table className="analytics-ledger-table">
+            <thead>
+              <tr>
+                <th>INVOICE ID</th>
+                <th>COUNTERPARTY</th>
+                <th>DATE ISSUED</th>
+                <th>DUE DATE</th>
+                <th>AMOUNT</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="analytics-empty-cell">
+                    <div className="analytics-empty-state">
+                      <div className="empty-icon-circle">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                      </div>
+                      <span className="empty-title">No telemetry records found</span>
+                      <span className="empty-desc">Create or settle an invoice to populate on-chain metrics</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredInvoices.map((inv) => {
+                  const displayId = inv.id ? (inv.id.length > 12 ? `${inv.id.slice(0, 8)}...` : inv.id) : 'INV-001';
+                  const recipient = inv.recipient_id || inv.to_name || '0x71C8...8357';
+                  const formattedRecipient = recipient.length > 14 ? `${recipient.slice(0, 6)}...${recipient.slice(-4)}` : recipient;
+                  const dateStr = inv.created_at ? new Date(inv.created_at).toLocaleDateString() : 'Today';
+                  const dueStr = inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—';
+                  const amountNum = parseFloat(inv.amount || 0);
+
+                  return (
+                    <tr key={inv.id || Math.random()}>
+                      <td>
+                        <span className="invoice-id-badge">{inv.title || `INV-${displayId}`}</span>
+                      </td>
+                      <td>
+                        <div className="counterparty-cell">
+                          <span className="counterparty-dot" />
+                          <span className="counterparty-addr">{formattedRecipient}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="date-cell">{dateStr}</span>
+                      </td>
+                      <td>
+                        <span className="date-cell">{dueStr}</span>
+                      </td>
+                      <td>
+                        <span className="amount-cell">
+                          ${amountNum.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status-pill pill-${inv.status || 'pending'}`}>
+                          {inv.status ? inv.status.toUpperCase() : 'PENDING'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
