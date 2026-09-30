@@ -21,7 +21,7 @@ router.get('/policies', (_req, res) => {
 
 /** GET /api/ai/health */
 router.get('/health', (_req, res) => {
-  res.json({ status: 'ok', agents: ['router', 'invoiceCreator', 'analyst', 'splitter', 'autopilot'], model: 'gemini-2.0-flash' });
+  res.json({ status: 'ok', agents: ['router', 'invoiceCreator', 'analyst', 'autopilot'], model: 'gemini-2.0-flash' });
 });
 
 export default router;

@@ -11,7 +11,6 @@ export const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io';
 export const CONTRACTS = {
   invoiceFactory: import.meta.env.VITE_INVOICE_FACTORY_ADDRESS || '',
   escrowVault: import.meta.env.VITE_ESCROW_VAULT_ADDRESS || '',
-  billSplitter: import.meta.env.VITE_BILL_SPLITTER_ADDRESS || '',
 };
 
 // ── Supported Tokens ──
@@ -75,8 +74,6 @@ export const TX_CATEGORIES = {
   ESCROW_DEPOSIT: 'escrow_deposit',
   ESCROW_RELEASE: 'escrow_release',
   ESCROW_REFUND: 'escrow_refund',
-  BILL_SPLIT_PAY: 'bill_split_pay',
-  BILL_SPLIT_RECEIVE: 'bill_split_receive',
 };
 
 export const TX_CATEGORY_LABELS = {
@@ -84,15 +81,12 @@ export const TX_CATEGORY_LABELS = {
   [TX_CATEGORIES.ESCROW_DEPOSIT]: 'Escrow Deposit',
   [TX_CATEGORIES.ESCROW_RELEASE]: 'Escrow Release',
   [TX_CATEGORIES.ESCROW_REFUND]: 'Escrow Refund',
-  [TX_CATEGORIES.BILL_SPLIT_PAY]: 'Pay Bill Split',
-  [TX_CATEGORIES.BILL_SPLIT_RECEIVE]: 'Receive Bill Split',
 };
 
 // ── Agent Types ──
 export const AGENTS = {
   CREATOR: 'creator',
   REMINDER: 'reminder',
-  SPLITTER: 'splitter',
   ANALYST: 'analyst',
 };
 
@@ -108,12 +102,6 @@ export const AGENT_CONFIG = {
     icon: '🔔',
     description: 'Automatically send payment reminders via email',
     permissions: { canReadContacts: false, canSignTx: false, canSendEmail: true },
-  },
-  [AGENTS.SPLITTER]: {
-    name: 'Smart Splitter',
-    icon: '✂️',
-    description: 'Smart bill splitting with AI suggestions',
-    permissions: { canSignTx: true, maxTxAmount: '0.5', canSendEmail: false },
   },
   [AGENTS.ANALYST]: {
     name: 'Cash Flow Analyst',

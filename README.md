@@ -12,10 +12,9 @@ Obscural is a hybrid Web3 invoicing platform that combines traditional commercia
 - **PDF Export** — Generate branded PDF invoices with QR payment codes
 - **Contact Management** — Full CRUD contacts with profile editing, avatar support, and backend sync
 - **Real-Time Analytics** — Revenue charts, settlement rates, and cash flow telemetry powered by Chart.js
-- **AI Copilot** — Natural language invoice creation, financial analysis, and bill splitting via multi-agent system
+- **AI Copilot** — Natural language invoice creation and financial analysis via multi-agent system
 - **Autopilot Trust Matrix** — AI-evaluated counterparty trust scoring with auto-pay policies
 - **Escrow Vault** — Trustless funds custody governed by `EscrowVault.sol` smart contract
-- **Bill Splitter** — Automated multi-party payment distribution via `BillSplitter.sol`
 - **Notifications** — Real-time alerts for overdue invoices, upcoming due dates, and settled payments (backend-synced)
 - **Profile Sync** — User profiles synced between local storage and Supabase backend
 - **Mobile Responsive** — Bottom tab navigation for mobile viewports with glassmorphism design
@@ -38,7 +37,7 @@ Obscural is a hybrid Web3 invoicing platform that combines traditional commercia
 │  Security Middleware (rate limit, sanitize, headers)  │
 ├──────────────────────────────────────────────────────┤
 │               Smart Contracts (Foundry / Solidity)   │
-│  InvoiceFactory · EscrowVault · BillSplitter         │
+│  InvoiceFactory · EscrowVault                        │
 ├──────────────────────────────────────────────────────┤
 │               Infrastructure                         │
 │  Supabase (DB) · Privy (Auth) · Rialo/Sepolia (L1)  │
@@ -71,13 +70,12 @@ obscural/
 ├── contracts/              # Solidity smart contracts (Foundry)
 │   ├── src/
 │   │   ├── InvoiceFactory.sol
-│   │   ├── EscrowVault.sol
-│   │   └── BillSplitter.sol
+│   │   └── EscrowVault.sol
 │   ├── test/               # Foundry tests
 │   └── script/             # Deploy scripts
 ├── server/                 # Express.js backend
 │   └── src/
-│       ├── agents/         # AI agent system (router, creator, reminder, analyst, splitter, autopilot)
+│       ├── agents/         # AI agent system (router, creator, reminder, analyst, autopilot)
 │       ├── config/         # Environment config
 │       ├── db/             # Database schema (Supabase SQL)
 │       ├── middleware/     # Security middleware (rate limit, sanitize, headers)

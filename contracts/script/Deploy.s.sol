@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "forge-std/Script.sol";
 import "../src/InvoiceFactory.sol";
 import "../src/EscrowVault.sol";
-import "../src/BillSplitter.sol";
 
 contract Deploy is Script {
     function run() external {
@@ -13,12 +12,10 @@ contract Deploy is Script {
 
         InvoiceFactory invoiceFactory = new InvoiceFactory();
         EscrowVault escrowVault = new EscrowVault();
-        BillSplitter billSplitter = new BillSplitter();
 
         vm.stopBroadcast();
 
         console.log("InvoiceFactory deployed at:", address(invoiceFactory));
         console.log("EscrowVault deployed at:", address(escrowVault));
-        console.log("BillSplitter deployed at:", address(billSplitter));
     }
 }

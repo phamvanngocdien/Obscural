@@ -140,7 +140,7 @@ CREATE TRIGGER trg_trust_updated
 -- ============================================================
 CREATE TABLE IF NOT EXISTS agent_logs (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_type    TEXT NOT NULL,                   -- router | invoiceCreator | analyst | splitter | autopilot | reminder
+  agent_type    TEXT NOT NULL,                   -- router | invoiceCreator | analyst | autopilot | reminder
   action        TEXT DEFAULT '',
   input         JSONB DEFAULT '{}'::jsonb,
   output        JSONB DEFAULT '{}'::jsonb,
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   user_id       TEXT NOT NULL,
   invoice_id    UUID REFERENCES invoices(id) ON DELETE SET NULL,
   type          TEXT DEFAULT 'outbound',         -- inbound | outbound
-  category      TEXT DEFAULT 'invoice_payment',  -- invoice_payment | escrow_deposit | escrow_release | escrow_refund | bill_split_pay | bill_split_receive
+  category      TEXT DEFAULT 'invoice_payment',  -- invoice_payment | escrow_deposit | escrow_release | escrow_refund
   from_address  TEXT DEFAULT '',
   to_address    TEXT DEFAULT '',
   amount        NUMERIC(18, 6) DEFAULT 0,

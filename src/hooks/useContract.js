@@ -30,15 +30,6 @@ const ESCROW_VAULT_ABI = [
   'event EscrowReleased(uint256 indexed invoiceId, address indexed beneficiary, uint256 amount)',
 ];
 
-const BILL_SPLITTER_ABI = [
-  'function createSplit(address[] participants, uint256[] shares, uint256 totalAmount, bytes32 descHash) external returns (uint256)',
-  'function paySplit(uint256 splitId) external payable',
-  'function getSplit(uint256 splitId) external view returns (tuple(uint256 id, address creator, uint256 totalAmount, uint256 paidAmount, bytes32 descHash, uint8 status, uint256 createdAt))',
-  'function getParticipants(uint256 splitId) external view returns (address[], uint256[], bool[])',
-  'event SplitCreated(uint256 indexed id, address indexed creator, uint256 totalAmount)',
-  'event SplitPaid(uint256 indexed id, address indexed payer, uint256 amount)',
-];
-
 /**
  * useContract hook — provides contract instances connected to the user's signer.
  *
@@ -58,16 +49,11 @@ export default function useContract(signer, provider) {
     return new ethers.Contract(CONTRACTS.escrowVault, ESCROW_VAULT_ABI, signerOrProvider);
   }, [signerOrProvider]);
 
-  const billSplitter = useMemo(() => {
-    if (!signerOrProvider || !CONTRACTS.billSplitter) return null;
-    return new ethers.Contract(CONTRACTS.billSplitter, BILL_SPLITTER_ABI, signerOrProvider);
-  }, [signerOrProvider]);
-
   return {
     invoiceFactory,
     escrowVault,
-    billSplitter,
     /** True when at least one contract address is configured */
-    isReady: !!(invoiceFactory || escrowVault || billSplitter),
+    isReady: !!(invoiceFactory || escrowVault),
   };
 }
+

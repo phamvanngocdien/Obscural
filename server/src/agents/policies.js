@@ -5,7 +5,6 @@ const POLICIES = {
   router: { description: 'Routes user intent to sub-agents', canRead: true, canWrite: false, canSign: false, canEmail: false, rateLimit: 30 },
   invoiceCreator: { description: 'Creates invoices from NL', canRead: true, canWrite: true, canSign: false, canEmail: false, rateLimit: 10 },
   analyst: { description: 'Financial insights', canRead: true, canWrite: false, canSign: false, canEmail: false, rateLimit: 10 },
-  splitter: { description: 'Bill splitting', canRead: true, canWrite: true, canSign: true, canEmail: false, maxTxAmount: 0.5, rateLimit: 10 },
   reminder: { description: 'Payment reminder & email dispatch', canRead: true, canWrite: false, canSign: false, canEmail: true, rateLimit: 15 },
   autopilot: { description: 'Auto-manages recurring payments via OnLatch', canRead: true, canWrite: true, canSign: true, canEmail: true, maxTxAmount: null, rateLimit: 20 },
 };
