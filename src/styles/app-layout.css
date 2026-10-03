@@ -1,12 +1,12 @@
 /* ========================================
-   App Layout & Sidebar — Immersive Cockpit Shell
-   Obscural Modern Layout & Navigation
+   App Layout — Cosmic Glassmorphism Shell
+   Obscural Nebula Design System
    ======================================== */
 
 .layout {
   display: flex;
   min-height: 100vh;
-  background-color: transparent; /* Immersive canvas shines through */
+  background-color: transparent;
   position: relative;
   z-index: 1;
 }
@@ -20,6 +20,7 @@
   min-width: 0;
 }
 
+/* ── Glassmorphism Top Bar ── */
 .layout-topbar {
   display: flex;
   justify-content: space-between;
@@ -28,11 +29,11 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  background: rgba(7, 9, 19, 0.75);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  background: rgba(28, 28, 32, 0.75);
   border-bottom: 1px solid var(--border-subtle);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .layout-topbar-brand {
@@ -45,13 +46,14 @@
   width: 24px;
   height: 24px;
   object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(139, 122, 255, 0.4));
 }
 
 .layout-topbar-title {
   font-family: var(--font-display);
   font-size: var(--text-sm);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-primary);
 }
@@ -63,6 +65,7 @@
   margin-left: auto;
 }
 
+/* ── Glass Notification Button ── */
 .layout-notification {
   position: relative;
   width: 38px;
@@ -70,35 +73,44 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-glass);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-base);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .layout-notification:hover {
-  background: var(--bg-glass-hover);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
-  border-color: var(--border-strong);
-  box-shadow: 0 0 12px rgba(159, 140, 255, 0.2);
+  border-color: var(--border-accent);
+  box-shadow: 0 0 20px rgba(139, 122, 255, 0.15), var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .layout-notification-badge {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  background: var(--color-error);
-  color: white;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FF6B7A, #E11D48);
+  color: #FFFFFF;
   font-size: 10px;
   font-weight: 700;
   font-family: var(--font-mono);
-  padding: 1px 4px;
-  border-radius: var(--radius-xs);
-  line-height: 1.2;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  line-height: 1;
+  border: 2px solid var(--bg-main, #1F1F1F);
+  box-shadow: 0 0 10px rgba(255, 107, 122, 0.6);
+  pointer-events: none;
 }
 
 .layout-content {
@@ -110,21 +122,31 @@
   overflow: visible;
 }
 
-/* Notification Dropdown */
+/* ── Glass Notification Dropdown ── */
 .layout-notif-dropdown {
   position: absolute;
   top: 52px;
   right: var(--space-8);
-  width: 300px;
-  background: var(--bg-secondary);
+  width: 320px;
+  background: rgba(28, 28, 34, 0.94);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
   z-index: var(--z-dropdown);
   overflow: hidden;
-  animation: fadeInDown 120ms var(--ease-spring);
+  animation: fadeInDown 150ms var(--ease-spring);
+}
+
+.layout-notif-dropdown::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
 .layout-notif-header {
@@ -148,13 +170,13 @@
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: 12px;
   transition: all var(--transition-fast);
 }
 
 .layout-notif-close:hover {
-  background: var(--bg-glass-hover);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
 }
 
@@ -185,7 +207,7 @@
 }
 
 /* ========================================
-   Sidebar — Spacious Immersive Rail
+   Sidebar — Cosmic Glassmorphism Rail
    ======================================== */
 
 .sidebar {
@@ -194,15 +216,26 @@
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
-  background: rgba(9, 11, 25, 0.88);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(26, 26, 30, 0.88);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
   border-right: 1px solid var(--border-subtle);
-  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.02);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.03), 4px 0 30px rgba(0, 0, 0, 0.3);
   z-index: var(--z-sticky);
   padding: var(--space-6) var(--space-4);
   display: flex;
   flex-direction: column;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 122, 255, 0.2), transparent);
+  pointer-events: none;
 }
 
 .sidebar-nav {
@@ -224,17 +257,16 @@
   width: 32px;
   height: 32px;
   object-fit: contain;
-  filter: drop-shadow(0 0 12px rgba(159, 140, 255, 0.45));
+  filter: drop-shadow(0 0 14px rgba(139, 122, 255, 0.5));
 }
 
 .sidebar-logo-text {
   font-family: var(--font-display);
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-primary);
-  background: linear-gradient(180deg, #FFFFFF 0%, #CCD3EE 100%);
+  background: linear-gradient(180deg, #FFFFFF 0%, #C8C0FF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -243,20 +275,20 @@
 .sidebar-main {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex: 1;
 }
 
 .sidebar-bottom {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   margin-top: auto;
 }
 
 .sidebar-divider {
   height: 1px;
-  background: var(--border-subtle);
+  background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
   margin: var(--space-4) var(--space-2);
 }
 
@@ -265,11 +297,11 @@
   align-items: center;
   gap: 14px;
   padding: 10px 14px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: 0.95rem; /* Larger, readable text */
-  font-weight: 600;
+  font-size: 0.92rem;
+  font-weight: 500;
   transition: all var(--transition-base);
   position: relative;
   cursor: pointer;
@@ -278,18 +310,19 @@
 }
 
 .sidebar-link:hover {
-  background: var(--bg-glass-hover);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
-  transform: translateX(2px);
+  transform: translateX(3px);
+  border-color: rgba(255, 255, 255, 0.04);
 }
 
 .sidebar-link-active {
-  background: var(--color-primary-subtle);
+  background: rgba(139, 122, 255, 0.1);
   color: var(--color-primary-light);
-  font-weight: 700;
-  border-color: rgba(159, 140, 255, 0.2);
+  font-weight: 600;
+  border-color: rgba(139, 122, 255, 0.2);
   border-left: 3px solid var(--color-primary);
-  box-shadow: inset 0 0 16px rgba(159, 140, 255, 0.08);
+  box-shadow: inset 0 0 20px rgba(139, 122, 255, 0.08), 0 0 15px rgba(139, 122, 255, 0.05);
 }
 
 .sidebar-link-icon {
@@ -312,7 +345,7 @@
 }
 
 /* ========================================
-   Mobile Bottom Navigation
+   Mobile Bottom Navigation — Glass
    ======================================== */
 
 .mobile-nav {
@@ -327,15 +360,26 @@
     left: 0;
     right: 0;
     height: 64px;
-    background: rgba(9, 11, 25, 0.92);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    background: rgba(26, 26, 30, 0.92);
+    backdrop-filter: blur(30px) saturate(200%);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
     border-top: 1px solid var(--border-subtle);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
     z-index: var(--z-sticky);
     align-items: center;
     justify-content: space-around;
     padding: 0 4px;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mobile-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(139, 122, 255, 0.15), transparent);
   }
 
   .mobile-nav-item {
@@ -345,7 +389,7 @@
     justify-content: center;
     gap: 3px;
     padding: 6px 8px;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     text-decoration: none;
     color: var(--text-tertiary);
     transition: all 200ms ease;
@@ -371,8 +415,9 @@
     transform: translateX(-50%);
     width: 24px;
     height: 2px;
-    background: var(--color-primary);
+    background: var(--gradient-primary);
     border-radius: 0 0 2px 2px;
+    box-shadow: 0 0 8px rgba(139, 122, 255, 0.5);
   }
 
   .mobile-nav-icon {
@@ -386,10 +431,10 @@
   .mobile-nav-create-icon {
     width: 36px;
     height: 36px;
-    background: var(--color-primary);
+    background: var(--gradient-primary);
     border-radius: 50%;
     color: #FFFFFF;
-    box-shadow: 0 4px 16px rgba(159, 140, 255, 0.4);
+    box-shadow: 0 4px 16px rgba(139, 122, 255, 0.4);
     margin-bottom: 2px;
   }
 
@@ -409,7 +454,6 @@
     line-height: 1;
   }
 
-  /* Add bottom padding to main content to prevent overlap with mobile nav */
   .layout-content {
     padding-bottom: 80px;
   }

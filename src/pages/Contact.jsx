@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from '../components/common';
 import useAuthStore from '../store/authStore';
+import useI18nStore from '../store/i18nStore';
 import api, { contactsApi, profilesApi } from '../services/api';
 import '../styles/Contact.css';
 
@@ -30,6 +31,7 @@ const DEFAULT_DEMO_CONTACTS = [
 
 export default function Contact() {
   const { user } = useAuthStore();
+  const { t, locale } = useI18nStore();
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -285,8 +287,8 @@ export default function Contact() {
   };
 
   const avatarPresets = [
-    'linear-gradient(135deg, #9F8CFF 0%, #6366F1 100%)',
-    'linear-gradient(135deg, #7EE7BD 0%, #10B981 100%)',
+    'linear-gradient(135deg, #8B7AFF 0%, #6366F1 100%)',
+    'linear-gradient(135deg, #5DE4C7 0%, #10B981 100%)',
     'linear-gradient(135deg, #FFD641 0%, #F59E0B 100%)',
     'linear-gradient(135deg, #38BDF8 0%, #3B82F6 100%)',
   ];
@@ -344,7 +346,7 @@ export default function Contact() {
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
-            Edit Profile
+            {locale === 'vi' ? 'Sửa hồ sơ' : 'Edit Profile'}
           </button>
         </div>
 
@@ -352,9 +354,9 @@ export default function Contact() {
           <div className="contact-profile-row">
             <span className="contact-profile-label">EMAIL:</span>
             <div className="contact-profile-value-group">
-              <span className="contact-profile-value">{profile.email || 'Not set'}</span>
+              <span className="contact-profile-value">{profile.email || (locale === 'vi' ? 'Chưa thiết lập' : 'Not set')}</span>
               {profile.email && (
-                <button className="contact-copy-btn" onClick={() => handleCopy(profile.email, 'email')} title="Copy Email">
+                <button className="contact-copy-btn" onClick={() => handleCopy(profile.email, 'email')} title={locale === 'vi' ? 'Sao chép Email' : 'Copy Email'}>
                   {copied === 'email' ? '✓' : '⧉'}
                 </button>
               )}
@@ -365,18 +367,18 @@ export default function Contact() {
             <span className="contact-profile-label">WALLET:</span>
             <div className="contact-profile-value-group">
               <span className="contact-profile-value">{shortAddr}</span>
-              <button className="contact-copy-btn" onClick={() => handleCopy(user?.address || '', 'address')} title="Copy Address">
+              <button className="contact-copy-btn" onClick={() => handleCopy(user?.address || '', 'address')} title={locale === 'vi' ? 'Sao chép Địa chỉ' : 'Copy Address'}>
                 {copied === 'address' ? '✓' : '⧉'}
               </button>
             </div>
           </div>
 
           <div className="contact-profile-row">
-            <span className="contact-profile-label">ADDRESS:</span>
+            <span className="contact-profile-label">{locale === 'vi' ? 'ĐỊA CHỈ:' : 'ADDRESS:'}</span>
             <div className="contact-profile-value-group">
-              <span className="contact-profile-value">{profile.location || 'Not set'}</span>
+              <span className="contact-profile-value">{profile.location || (locale === 'vi' ? 'Chưa thiết lập' : 'Not set')}</span>
               {profile.location && (
-                <button className="contact-copy-btn" onClick={() => handleCopy(profile.location, 'location')} title="Copy Address">
+                <button className="contact-copy-btn" onClick={() => handleCopy(profile.location, 'location')} title={locale === 'vi' ? 'Sao chép Địa chỉ' : 'Copy Address'}>
                   {copied === 'location' ? '✓' : '⧉'}
                 </button>
               )}
@@ -394,19 +396,19 @@ export default function Contact() {
           </svg>
           <input
             type="text"
-            placeholder="Search by name, email, address or wallet..."
+            placeholder={locale === 'vi' ? 'Tìm theo tên, email, địa chỉ hoặc ví...' : 'Search by name, email, address or wallet...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <button className="contact-add-btn" onClick={() => setShowAddForm(true)} title="Add New Contact">
+        <button className="contact-add-btn" onClick={() => setShowAddForm(true)} title={locale === 'vi' ? 'Thêm liên hệ mới' : 'Add New Contact'}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
             <circle cx="8.5" cy="7" r="4" />
             <line x1="20" y1="8" x2="20" y2="14" />
             <line x1="23" y1="11" x2="17" y2="11" />
           </svg>
-          <span style={{ fontSize: '12px', fontWeight: 600, marginLeft: '4px' }}>Add Contact</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, marginLeft: '4px' }}>{locale === 'vi' ? 'Thêm liên hệ' : 'Add Contact'}</span>
         </button>
       </div>
 
@@ -597,10 +599,10 @@ export default function Contact() {
 
       {/* ── Recent Contacts ── */}
       <div className="contact-section">
-        <h3 className="contact-section-title">Recent Contacts ({recentContacts.length})</h3>
+        <h3 className="contact-section-title">{locale === 'vi' ? 'Liên hệ gần đây' : 'Recent Contacts'} ({recentContacts.length})</h3>
         <div className="contact-list">
           {recentContacts.length === 0 ? (
-            <div className="contact-empty">No contacts yet</div>
+            <div className="contact-empty">{locale === 'vi' ? 'Chưa có liên hệ nào' : 'No contacts yet'}</div>
           ) : (
             recentContacts.map((c) => (
               <div key={c.id} className="contact-item">
@@ -610,9 +612,9 @@ export default function Contact() {
                   </div>
                   <div className="contact-item-info">
                     <span className="contact-item-name">{c.name}</span>
-                    <span className="contact-item-email">{c.email || 'No email'}</span>
+                    <span className="contact-item-email">{c.email || (locale === 'vi' ? 'Chưa có email' : 'No email')}</span>
                     {(c.homeAddress || c.address) && (
-                      <span style={{ fontSize: '10px', color: '#737B9B', marginTop: '2px' }}>
+                      <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
                         📍 {c.homeAddress || c.address}
                       </span>
                     )}
@@ -629,13 +631,13 @@ export default function Contact() {
                     style={{
                       background: 'transparent',
                       border: 'none',
-                      color: '#FF494A',
+                      color: '#FF6B7A',
                       cursor: 'pointer',
                       fontSize: '12px',
                       padding: '4px',
                       opacity: 0.7,
                     }}
-                    title="Delete Contact"
+                    title={locale === 'vi' ? 'Xóa liên hệ' : 'Delete Contact'}
                   >
                     ✕
                   </button>
@@ -648,10 +650,14 @@ export default function Contact() {
 
       {/* ── All Contacts ── */}
       <div className="contact-section">
-        <h3 className="contact-section-title">All Contacts ({allContacts.length})</h3>
+        <h3 className="contact-section-title">{locale === 'vi' ? 'Tất cả liên hệ' : 'All Contacts'} ({allContacts.length})</h3>
         <div className="contact-list">
           {allContacts.length === 0 ? (
-            <div className="contact-empty">No contacts found matching &ldquo;{search}&rdquo;</div>
+            <div className="contact-empty">
+              {locale === 'vi'
+                ? `Không tìm thấy liên hệ nào khớp với "${search}"`
+                : `No contacts found matching "${search}"`}
+            </div>
           ) : (
             allContacts.map((c) => (
               <div key={`all-${c.id}`} className="contact-item">
@@ -663,7 +669,7 @@ export default function Contact() {
                     <span className="contact-item-name">{c.name}</span>
                     <span className="contact-item-email">{c.email || 'No email'}</span>
                     {(c.homeAddress || c.address) && (
-                      <span style={{ fontSize: '10px', color: '#737B9B', marginTop: '2px' }}>
+                      <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
                         📍 {c.homeAddress || c.address}
                       </span>
                     )}
@@ -680,7 +686,7 @@ export default function Contact() {
                     style={{
                       background: 'transparent',
                       border: 'none',
-                      color: '#FF494A',
+                      color: '#FF6B7A',
                       cursor: 'pointer',
                       fontSize: '12px',
                       padding: '4px',

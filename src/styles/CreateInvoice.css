@@ -1,5 +1,5 @@
 /* ========================================
-   Create Invoice — Sharp Vitael Invoice Card
+   Create Invoice — Glass Cosmic Invoice Card
    Obscural Professional Invoice Builder
    ======================================== */
 
@@ -12,19 +12,19 @@
   z-index: 1;
 }
 
-/* Sharp Bento Invoice Card */
+/* Glass Invoice Card */
 .ci-card {
   width: 100%;
   max-width: 700px;
   background: var(--bg-card);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-8) var(--space-8);
   color: var(--text-primary);
   position: relative;
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
   margin-bottom: var(--space-8);
   transition: all var(--transition-base);
 }
@@ -84,13 +84,13 @@
   margin-top: var(--space-2);
 }
 
-/* Sharp Inputs */
+/* Glass Inputs */
 .ci-input {
   width: 100%;
   padding: 7px var(--space-3);
   background: var(--bg-input);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   font-size: var(--text-xs);
   font-family: var(--font-primary);
   color: var(--text-primary);
@@ -106,15 +106,15 @@
 .ci-input:focus {
   background: var(--bg-input-focus);
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(159, 140, 255, 0.2);
+  box-shadow: 0 0 0 2px rgba(139, 122, 255, 0.2);
 }
 
-/* Sharp Select dropdowns */
+/* Glass Select dropdowns */
 .ci-select {
   padding: 6px var(--space-2);
   background: var(--bg-input);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   font-size: 11px;
   font-family: var(--font-primary);
   color: var(--text-primary);
@@ -170,7 +170,7 @@
   padding: 5px var(--space-3);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
   text-align: left;
@@ -269,7 +269,7 @@
   align-items: center;
   background: var(--bg-input);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   overflow: hidden;
   flex: 0 0 95px;
 }
@@ -314,7 +314,7 @@
   align-items: center;
   background: var(--bg-input);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   overflow: hidden;
   transition: all var(--transition-fast);
   width: 95px;
@@ -322,7 +322,7 @@
 
 .ci-tax-stepper:focus-within {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(159, 140, 255, 0.2);
+  box-shadow: 0 0 0 2px rgba(139, 122, 255, 0.2);
 }
 
 .ci-tax-stepper .ci-tax-input {
@@ -371,7 +371,7 @@
   flex-shrink: 0;
   width: 26px;
   height: 26px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -384,19 +384,19 @@
 }
 
 .ci-item-remove:hover {
-  background: rgba(255, 73, 74, 0.2);
+  background: rgba(255, 107, 122, 0.2);
   border-color: var(--color-error);
 }
 
-/* Sharp Add Item Button */
+/* Glass Add Item Button */
 .ci-add-item-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 150px;
   padding: 6px var(--space-3);
-  border: 1px dashed rgba(159, 140, 255, 0.35);
-  border-radius: var(--radius-xs);
+  border: 1px dashed rgba(139, 122, 255, 0.35);
+  border-radius: var(--radius-md);
   background: var(--color-primary-subtle);
   color: var(--color-primary-light);
   cursor: pointer;
@@ -406,7 +406,7 @@
 }
 
 .ci-add-item-btn:hover {
-  background: rgba(159, 140, 255, 0.16);
+  background: rgba(139, 122, 255, 0.16);
   border-color: var(--color-primary);
 }
 
@@ -460,10 +460,32 @@
 
 .ci-summary-total {
   font-weight: 700;
-  font-size: var(--text-base);
-  color: var(--text-primary);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-lg);
+  color: #FFFFFF;
+  padding-top: var(--space-3);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--border-medium);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ci-total-label {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: -0.01em;
+}
+
+.ci-total-val {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  background: linear-gradient(135deg, #FFFFFF 0%, #A78BFA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* Note */
@@ -476,7 +498,7 @@
   padding: var(--space-3);
   background: var(--bg-input);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   font-size: var(--text-xs);
   font-family: var(--font-primary);
   color: var(--text-primary);
@@ -494,42 +516,57 @@
 .ci-textarea:focus {
   background: var(--bg-input-focus);
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(159, 140, 255, 0.2);
+  box-shadow: 0 0 0 2px rgba(139, 122, 255, 0.2);
 }
 
-/* Sharp Create Button */
-.ci-create-btn {
-  display: block;
+/* Action Button & Cosmic Glow */
+.ci-actions {
+  margin-top: var(--space-6);
   width: 100%;
-  padding: 10px var(--space-6);
+}
+
+.ci-create-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 13px var(--space-6);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: #070913;
-  font-size: var(--text-sm);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 50%, #38BDF8 100%);
+  color: #FFFFFF;
+  font-size: var(--text-base);
   font-weight: 700;
   font-family: var(--font-primary);
   cursor: pointer;
   transition: all var(--transition-base);
-  box-shadow: 0 2px 8px rgba(159, 140, 255, 0.3);
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   letter-spacing: -0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.ci-create-btn svg {
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.4));
 }
 
 .ci-create-btn:hover {
-  background: var(--color-primary-light);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(159, 140, 255, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(124, 58, 237, 0.6), 0 0 20px rgba(56, 189, 248, 0.3);
+  filter: brightness(1.08);
 }
 
 .ci-create-btn:active {
   transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.4);
 }
 
 /* Responsive */
 @media (max-width: 650px) {
   .ci-card {
     padding: var(--space-5) var(--space-4);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
   }
 
   .ci-row-split {

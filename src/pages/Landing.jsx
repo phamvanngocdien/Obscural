@@ -3,7 +3,7 @@ import { LanguageSwitcher } from '../components/layout/Layout';
 import '../styles/Landing.css';
 
 export default function Landing({ onLogin }) {
-  const { t } = useI18nStore();
+  const { t, locale } = useI18nStore();
 
   const protocolMetrics = [
     { label: t('landing.metricNonCustodial'), value: '100%', sub: t('landing.metricNonCustodialSub') },

@@ -3,11 +3,13 @@ import { useParams, Link } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import { QRCodeSVG } from 'qrcode.react';
 import { Spinner, toast } from '../components/common';
+import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
 import '../styles/InvoiceList.css';
 
 export default function InvoiceDetail() {
   const { id } = useParams();
+  const { t, locale } = useI18nStore();
 
   const [inv, setInv] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -104,7 +106,7 @@ export default function InvoiceDetail() {
       doc.rect(0, 0, 210, 297, 'F');
 
       // Title & Branding
-      doc.setTextColor(159, 140, 255);
+      doc.setTextColor(139, 122, 255);
       doc.setFontSize(22);
       doc.setFont('helvetica', 'bold');
       doc.text('OBSCURAL', 20, 25);
@@ -129,7 +131,7 @@ export default function InvoiceDetail() {
 
       // Issuer / Counterparty
       doc.setFontSize(9);
-      doc.setTextColor(126, 231, 189);
+      doc.setTextColor(93, 228, 199);
       doc.text('FROM (ISSUER):', 20, 58);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
@@ -141,7 +143,7 @@ export default function InvoiceDetail() {
       if (pdfFrom.address) doc.text(`Address: ${pdfFrom.address.slice(0, 45)}`, 20, 75);
 
       doc.setFontSize(9);
-      doc.setTextColor(126, 231, 189);
+      doc.setTextColor(93, 228, 199);
       doc.text('TO (COUNTERPARTY):', 110, 58);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
@@ -193,13 +195,13 @@ export default function InvoiceDetail() {
       doc.text(`$${typeof pdfTaxAmount === 'number' ? pdfTaxAmount.toFixed(2) : pdfTaxAmount}`, 165, y);
       y += 8;
 
-      doc.setFillColor(159, 140, 255, 0.2);
+      doc.setFillColor(139, 122, 255, 0.2);
       doc.rect(120, y - 5, 70, 10, 'F');
       doc.setFontSize(11);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.text('Total Amount:', 125, y + 2);
-      doc.setTextColor(126, 231, 189);
+      doc.setTextColor(93, 228, 199);
       doc.text(`$${typeof pdfTotal === 'number' ? pdfTotal.toFixed(2) : pdfTotal} ${inv.currency || 'USD'}`, 155, y + 2);
 
       // Note & Verification
@@ -241,13 +243,26 @@ export default function InvoiceDetail() {
     );
   }
 
+  // Status label localized helper
+  const statusLabel = (status) => {
+    switch (status) {
+      case 'paid': return t('invoice.paid');
+      case 'pending': return t('invoice.pending');
+      case 'overdue': return t('invoice.overdue');
+      case 'draft': return t('invoice.draft');
+      case 'sent': return locale === 'vi' ? 'Đã nạp Escrow' : 'In Escrow';
+      case 'cancelled': return locale === 'vi' ? 'Đã hủy' : 'Cancelled';
+      default: return status ? status.toUpperCase() : t('invoice.pending');
+    }
+  };
+
   if (error || !inv) {
     return (
       <div className="id-page">
         <div style={{ textAlign: 'center', padding: 'var(--space-10)' }}>
-          <p style={{ color: 'var(--color-error)', marginBottom: 'var(--space-4)' }}>{error || 'Invoice not found'}</p>
+          <p style={{ color: 'var(--color-error)', marginBottom: 'var(--space-4)' }}>{error || t('invoice.noInvoices')}</p>
           <Link to="/invoices" className="id-back-btn">
-            ← Back to Invoices
+            ← {t('invoiceDetail.back')}
           </Link>
         </div>
       </div>
@@ -255,12 +270,12 @@ export default function InvoiceDetail() {
   }
 
   // Parse data
-  const createdDate = new Date(inv.created_at).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+  const createdDate = new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'long', day: '2-digit', year: 'numeric' });
   const dueDate = inv.dueDate
-    ? new Date(inv.dueDate).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' })
+    ? new Date(inv.dueDate).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'long', day: '2-digit', year: 'numeric' })
     : inv.due_date
-      ? new Date(inv.due_date).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' })
-      : 'Immediate';
+      ? new Date(inv.due_date).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'long', day: '2-digit', year: 'numeric' })
+      : (locale === 'vi' ? 'Ngay lập tức' : 'Immediate');
 
   const fromData = inv.from || { name: inv.creator_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.creator_id };
   const toData = inv.to || { name: inv.recipient_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.recipient_id };
@@ -286,23 +301,23 @@ export default function InvoiceDetail() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="m15 18-6-6 6-6" />
           </svg>
-          Back
+          {t('common.back')}
         </Link>
 
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             className="id-action-btn id-btn-pdf"
             onClick={handleDownloadPdf}
-            title="Download Invoice PDF"
+            title={t('invoiceDetail.downloadPdf')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 12px',
-              background: 'rgba(159, 140, 255, 0.15)',
-              border: '1px solid rgba(159, 140, 255, 0.35)',
+              padding: '6px 14px',
+              background: 'rgba(139, 92, 246, 0.15)',
+              border: '1px solid rgba(139, 92, 246, 0.35)',
               color: '#FFFFFF',
-              borderRadius: '6px',
+              borderRadius: '8px',
               cursor: 'pointer',
               fontSize: '11px',
               fontWeight: 600,
@@ -313,22 +328,22 @@ export default function InvoiceDetail() {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            Download PDF
+            {t('invoiceDetail.downloadPdf')}
           </button>
 
           <button
             className="id-action-btn id-btn-qr"
             onClick={() => setShowQrModal(true)}
-            title="Scan Payment QR"
+            title={t('invoiceDetail.payQr')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 12px',
-              background: 'rgba(126, 231, 189, 0.15)',
-              border: '1px solid rgba(126, 231, 189, 0.35)',
-              color: '#7EE7BD',
-              borderRadius: '6px',
+              padding: '6px 14px',
+              background: 'rgba(6, 182, 212, 0.15)',
+              border: '1px solid rgba(6, 182, 212, 0.35)',
+              color: '#22D3EE',
+              borderRadius: '8px',
               cursor: 'pointer',
               fontSize: '11px',
               fontWeight: 600,
@@ -340,7 +355,7 @@ export default function InvoiceDetail() {
               <rect x="14" y="14" width="7" height="7" />
               <rect x="3" y="14" width="7" height="7" />
             </svg>
-            Pay QR
+            {t('invoiceDetail.payQr')}
           </button>
         </div>
       </div>
@@ -350,9 +365,9 @@ export default function InvoiceDetail() {
         <div className="id-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 className="id-title">Invoice</h1>
+              <h1 className="id-title">{t('invoiceDetail.invoice')}</h1>
               <span className={`invoice-item-status status-${inv.status || 'pending'}`}>
-                {(inv.status || 'pending').toUpperCase()}
+                {statusLabel(inv.status)}
               </span>
             </div>
             <p className="id-date">{createdDate}</p>
@@ -363,7 +378,7 @@ export default function InvoiceDetail() {
         {/* From / To */}
         <div className="id-parties">
           <div className="id-party">
-            <h3 className="id-section-label">From:</h3>
+            <h3 className="id-section-label">{t('invoiceDetail.from')}</h3>
             <p className="id-party-name">{fromData.name || '—'}</p>
             <p className="id-party-info">{fromData.email || '—'}</p>
             {fromData.address && (
@@ -378,7 +393,7 @@ export default function InvoiceDetail() {
             )}
           </div>
           <div className="id-party">
-            <h3 className="id-section-label">To:</h3>
+            <h3 className="id-section-label">{t('invoiceDetail.to')}</h3>
             <p className="id-party-name">{toData.name || '—'}</p>
             <p className="id-party-info">{toData.email || '—'}</p>
             {toData.address && (
@@ -399,11 +414,11 @@ export default function InvoiceDetail() {
         {/* Due date & Currency */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-4)' }}>
           <div className="id-due">
-            <span className="id-section-label">Due date:</span>
+            <span className="id-section-label">{t('invoiceDetail.dueDate')}</span>
             <p className="id-due-date">{dueDate}</p>
           </div>
           <div className="id-currency-tag" style={{ textAlign: 'right' }}>
-            <span className="id-section-label">Currency / Settlement Token:</span>
+            <span className="id-section-label">{t('invoiceDetail.currency')}</span>
             <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-primary-light)', margin: 0 }}>
               {currency}
             </p>
@@ -415,17 +430,17 @@ export default function InvoiceDetail() {
         {/* Items table */}
         <div className="id-items">
           <div className="id-items-header">
-            <span className="id-col-item">Item</span>
-            <span className="id-col-qty">Quantity</span>
-            <span className="id-col-price">Price</span>
-            <span className="id-col-total">Total</span>
+            <span className="id-col-item">{t('invoiceDetail.item')}</span>
+            <span className="id-col-qty">{t('invoiceDetail.quantity')}</span>
+            <span className="id-col-price">{t('invoiceDetail.price')}</span>
+            <span className="id-col-total">{t('invoiceDetail.total')}</span>
           </div>
           {itemsList.map((item, i) => {
             const qty = parseInt(item.quantity) || 1;
             const price = parseFloat(item.price) || 0;
             return (
               <div key={i} className="id-items-row">
-                <span className="id-col-item">{item.description || 'Item'}</span>
+                <span className="id-col-item">{item.description || t('invoiceDetail.item')}</span>
                 <span className="id-col-qty">{qty}</span>
                 <span className="id-col-price">${price.toFixed(2)}</span>
                 <span className="id-col-total">${(qty * price).toFixed(2)}</span>
@@ -437,15 +452,15 @@ export default function InvoiceDetail() {
         {/* Summary */}
         <div className="id-summary">
           <div className="id-summary-row">
-            <span>Subtotal:</span>
+            <span>{t('invoiceDetail.subtotal')}</span>
             <span>${subtotal.toFixed ? subtotal.toFixed(2) : subtotal}</span>
           </div>
           <div className="id-summary-row">
-            <span>Tax ({inv.taxPercent || 0}%):</span>
+            <span>{t('invoiceDetail.tax')} ({inv.taxPercent || 0}%):</span>
             <span>${taxAmount.toFixed ? taxAmount.toFixed(2) : taxAmount}</span>
           </div>
           <div className="id-summary-row id-summary-total">
-            <span>Total:</span>
+            <span>{t('invoiceDetail.total')}:</span>
             <span>${typeof total === 'number' ? total.toFixed(2) : total} {currency}</span>
           </div>
         </div>
@@ -455,7 +470,7 @@ export default function InvoiceDetail() {
         {/* Note */}
         {noteText && (
           <div className="id-note" style={{ marginBottom: 'var(--space-6)' }}>
-            <h3 className="id-section-label">Note:</h3>
+            <h3 className="id-section-label">{t('invoiceDetail.note')}</h3>
             <p className="id-note-text">{noteText}</p>
           </div>
         )}
@@ -480,7 +495,7 @@ export default function InvoiceDetail() {
                 onClick={() => updateInvoiceStatus('paid')}
                 disabled={processingAction}
               >
-                <span>✓ Mark as Paid</span>
+                <span>✓ {t('invoiceDetail.markPaid')}</span>
               </button>
 
               <button
@@ -489,8 +504,8 @@ export default function InvoiceDetail() {
                   flex: 1,
                   minWidth: '160px',
                   padding: '10px 16px',
-                  background: 'rgba(159, 140, 255, 0.15)',
-                  border: '1px solid rgba(159, 140, 255, 0.35)',
+                  background: 'rgba(139, 92, 246, 0.15)',
+                  border: '1px solid rgba(139, 92, 246, 0.35)',
                   color: '#FFFFFF',
                   fontWeight: 600,
                   display: 'flex',
@@ -504,16 +519,16 @@ export default function InvoiceDetail() {
                 }}
                 disabled={processingAction}
               >
-                <span>🛡️ Escrow Deposit</span>
+                <span>🛡️ {t('invoiceDetail.escrowDeposit')}</span>
               </button>
 
               <button
                 className="btn"
-                style={{ padding: '10px 16px', background: 'rgba(255, 73, 74, 0.1)', border: '1px solid rgba(255, 73, 74, 0.25)', color: 'var(--color-error)', fontWeight: 600 }}
+                style={{ padding: '10px 16px', background: 'rgba(255, 107, 122, 0.1)', border: '1px solid rgba(255, 107, 122, 0.25)', color: 'var(--color-error)', fontWeight: 600 }}
                 onClick={() => updateInvoiceStatus('cancelled')}
                 disabled={processingAction}
               >
-                Cancel
+                {t('invoiceDetail.cancel')}
               </button>
             </>
           ) : (
@@ -521,16 +536,16 @@ export default function InvoiceDetail() {
               style={{
                 width: '100%',
                 padding: '12px',
-                background: 'rgba(126, 231, 189, 0.1)',
-                border: '1px solid rgba(126, 231, 189, 0.25)',
+                background: 'rgba(93, 228, 199, 0.1)',
+                border: '1px solid rgba(93, 228, 199, 0.25)',
                 borderRadius: '8px',
-                color: '#7EE7BD',
+                color: '#5DE4C7',
                 textAlign: 'center',
                 fontWeight: 600,
                 fontSize: '13px',
               }}
             >
-              ✓ This invoice was settled on-chain. Receipt verified.
+              ✓ {t('invoiceDetail.settled')}
             </div>
           )}
         </div>
@@ -540,26 +555,36 @@ export default function InvoiceDetail() {
       {showQrModal && (
         <div
           className="contact-modal-overlay"
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setShowQrModal(false)}
         >
           <div
             className="contact-modal"
-            style={{ width: '90%', maxWidth: '380px', background: '#0D1022', border: '1px solid rgba(159, 140, 255, 0.3)', borderRadius: '16px', padding: '24px', textAlign: 'center', position: 'relative' }}
+            style={{
+              width: '90%',
+              maxWidth: '380px',
+              background: 'var(--bg-card-solid, #26262B)',
+              border: '1px solid var(--border-medium, rgba(255, 255, 255, 0.15))',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              borderRadius: '16px',
+              padding: '24px',
+              textAlign: 'center',
+              position: 'relative'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>Scan to Pay</h3>
-            <p style={{ fontSize: '12px', color: '#A9AEC5', marginBottom: '16px' }}>
-              Amount: <strong style={{ color: '#7EE7BD' }}>${typeof total === 'number' ? total.toFixed(2) : total} {currency}</strong>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>{t('invoiceDetail.scanToPay')}</h3>
+            <p style={{ fontSize: '12px', color: 'rgba(240, 240, 245, 0.85)', marginBottom: '16px' }}>
+              {t('invoiceDetail.amount')} <strong style={{ color: '#5DE4C7' }}>${typeof total === 'number' ? total.toFixed(2) : total} {currency}</strong>
             </p>
 
             <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '16px' }}>
-              <QRCodeSVG value={payWallet} size={180} bgColor="#FFFFFF" fgColor="#0D1022" level="M" />
+              <QRCodeSVG value={payWallet} size={180} bgColor="#FFFFFF" fgColor="#1F1F1F" level="M" />
             </div>
 
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '10px', color: '#737B9B', display: 'block', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Recipient Wallet Address
+            <div style={{ background: 'rgba(255,255,255,0.06)', padding: '10px', borderRadius: '8px', marginBottom: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: '10px', color: 'rgba(200, 200, 220, 0.75)', display: 'block', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em' }}>
+                {t('invoiceDetail.recipientWallet')}
               </span>
               <span style={{ fontSize: '11px', color: '#FFFFFF', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                 {payWallet}
@@ -568,14 +593,14 @@ export default function InvoiceDetail() {
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn btn-primary" style={{ flex: 1, padding: '10px' }} onClick={() => handleCopyPaymentInfo(payWallet)}>
-                {copied ? '✓ Copied' : 'Copy Address'}
+                {copied ? `✓ ${t('invoiceDetail.copied')}` : t('invoiceDetail.copyAddress')}
               </button>
               <button
                 className="btn"
-                style={{ background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', padding: '10px 16px' }}
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', padding: '10px 16px', border: '1px solid rgba(255,255,255,0.15)' }}
                 onClick={() => setShowQrModal(false)}
               >
-                Close
+                {t('invoiceDetail.close')}
               </button>
             </div>
           </div>

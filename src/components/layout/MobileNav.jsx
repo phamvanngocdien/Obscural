@@ -65,7 +65,7 @@ const navItems = [
 
 export default function MobileNav() {
   const location = useLocation();
-  const { t } = useI18nStore();
+  const { t, locale } = useI18nStore();
 
   return (
     <nav className="mobile-nav">

@@ -1,5 +1,5 @@
 /* ========================================
-   Invoice List & Detail — Sharp Vitael Style
+   Invoice List & Detail — Glass Cosmic Style
    Obscural Invoice Management
    ======================================== */
 
@@ -31,20 +31,22 @@
   letter-spacing: -0.03em;
 }
 
-/* ── Sharp Hero Card ── */
+/* ── Glass Hero Card ── */
 .invoice-hero-card {
   width: 100%;
   max-width: 420px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 1px;
-  background: var(--border-medium);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.15));
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.12);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
 }
 
 .invoice-hero-image {
   width: 100%;
-  border-radius: calc(var(--radius-md) - 1px);
-  background: var(--bg-secondary);
+  border-radius: calc(var(--radius-lg) - 1px);
+  background: rgba(24, 24, 28, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -57,31 +59,31 @@
   object-fit: contain;
 }
 
-/* ── Sharp Create Invoice Button ── */
+/* ── Glass Create Invoice Button ── */
 .invoice-create-btn {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 8px var(--space-6);
-  background: var(--color-primary);
+  padding: 10px var(--space-6);
+  background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 50%, #38BDF8 100%);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  color: #070913;
-  font-size: var(--text-xs);
+  border-radius: var(--radius-md);
+  color: #FFFFFF;
+  font-size: var(--text-sm);
   font-weight: 700;
   text-decoration: none;
   transition: all var(--transition-base);
   max-width: 420px;
   width: 100%;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(159, 140, 255, 0.3);
+  box-shadow: 0 4px 18px rgba(124, 58, 237, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   letter-spacing: -0.01em;
 }
 
 .invoice-create-btn:hover {
-  background: var(--color-primary-light);
-  box-shadow: 0 4px 14px rgba(159, 140, 255, 0.45);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(124, 58, 237, 0.6), 0 0 16px rgba(56, 189, 248, 0.3);
+  filter: brightness(1.08);
 }
 
 /* ── Scrollable Invoice List ── */
@@ -95,7 +97,7 @@
 .invoice-list-scroll::-webkit-scrollbar { width: 4px; }
 .invoice-list-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
 }
 
 .invoice-list-section {
@@ -127,7 +129,7 @@
   padding: var(--space-3) var(--space-4);
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   text-decoration: none;
   transition: all var(--transition-fast);
   cursor: pointer;
@@ -181,32 +183,32 @@
   font-size: 9px;
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   text-transform: uppercase;
 }
 
 .status-pending {
   color: var(--color-warning);
   background: var(--color-warning-light);
-  border: 1px solid rgba(255, 214, 65, 0.25);
+  border: 1px solid rgba(255, 209, 102, 0.25);
 }
 
 .status-paid {
   color: var(--color-success);
   background: var(--color-success-light);
-  border: 1px solid rgba(126, 231, 189, 0.25);
+  border: 1px solid rgba(93, 228, 199, 0.25);
 }
 
 .status-overdue {
   color: var(--color-error);
   background: var(--color-error-light);
-  border: 1px solid rgba(255, 73, 74, 0.25);
+  border: 1px solid rgba(255, 107, 122, 0.25);
 }
 
 .status-sent {
   color: var(--color-info);
   background: var(--color-info-light);
-  border: 1px solid rgba(159, 140, 255, 0.25);
+  border: 1px solid rgba(139, 122, 255, 0.25);
 }
 
 /* Empty state */
@@ -219,7 +221,7 @@
   color: var(--text-tertiary);
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-xs);
 }
 
@@ -229,7 +231,7 @@
 }
 
 /* ========================================
-   Sharp Invoice Detail Card
+   Glass Invoice Detail Card
    ======================================== */
 
 .id-page {
@@ -250,7 +252,7 @@
   padding: 5px 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 600;
@@ -271,7 +273,7 @@
   max-width: 680px;
   background: var(--bg-card);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-8);
   color: var(--text-primary);
   position: relative;
@@ -310,7 +312,7 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   padding: 2px 7px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   font-weight: 600;
 }
 
@@ -433,7 +435,7 @@
   color: var(--text-secondary);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   padding: var(--space-3);
   margin-top: var(--space-1);
   line-height: 1.5;

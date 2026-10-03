@@ -1,6 +1,6 @@
 /* ========================================
-   Dashboard — Sharp Vitael Cockpit & Ledger
-   Obscural Modern Dashboard
+   Dashboard — Cosmic Glassmorphism Cockpit
+   Obscural Nebula Design System
    ======================================== */
 
 .dashboard {
@@ -11,22 +11,46 @@
   z-index: 1;
 }
 
-/* ── Sharp Cockpit Wallet Card ── */
+/* ── Glass Wallet Card ── */
 .dash-wallet {
   position: relative;
   text-align: center;
-  padding: var(--space-8) var(--space-6) var(--space-6);
-  background: var(--bg-card);
+  padding: var(--space-10) var(--space-6) var(--space-6);
+  background: var(--gradient-card);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  box-shadow: var(--shadow-lg);
   transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.dash-wallet::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 5%, rgba(255, 255, 255, 0.15) 50%, transparent 95%);
+  pointer-events: none;
+}
+
+.dash-wallet::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 50% 120%, rgba(139, 122, 255, 0.06) 0%, transparent 50%);
+  pointer-events: none;
 }
 
 .dash-wallet:hover {
   border-color: var(--border-accent);
+  box-shadow: var(--shadow-xl), var(--shadow-glow-sm);
 }
 
 .dash-wallet-title {
@@ -35,8 +59,10 @@
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
   display: block;
+  position: relative;
+  z-index: 1;
 }
 
 .dash-balance {
@@ -45,6 +71,8 @@
   justify-content: center;
   gap: 2px;
   margin-bottom: var(--space-2);
+  position: relative;
+  z-index: 1;
 }
 
 .dash-balance-symbol {
@@ -57,10 +85,11 @@
 .dash-balance-whole {
   font-family: var(--font-display);
   font-size: clamp(2.75rem, 6vw, 3.75rem);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.04em;
   line-height: 1;
+  text-shadow: 0 0 40px rgba(139, 122, 255, 0.15);
 }
 
 .dash-balance-decimal {
@@ -77,12 +106,15 @@
   gap: var(--space-2);
   margin-bottom: var(--space-6);
   color: var(--text-secondary);
+  position: relative;
+  z-index: 1;
 }
 
 .dash-token-icon {
   width: 14px;
   height: 14px;
-  color: #826EFF;
+  color: var(--color-primary);
+  filter: drop-shadow(0 0 4px rgba(139, 122, 255, 0.5));
 }
 
 .dash-token-amount {
@@ -95,14 +127,16 @@
   display: flex;
   justify-content: center;
   gap: var(--space-3);
+  position: relative;
+  z-index: 1;
 }
 
 .dash-wallet-btn {
-  padding: 8px var(--space-6);
+  padding: 10px var(--space-8);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 700;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-base);
   font-family: var(--font-primary);
@@ -110,33 +144,35 @@
 }
 
 .dash-wallet-btn:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .dash-btn-deposit {
-  background: var(--color-primary);
-  color: #070913;
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 2px 8px rgba(159, 140, 255, 0.3);
+  background: var(--gradient-primary);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 16px rgba(139, 122, 255, 0.35);
 }
 
 .dash-btn-deposit:hover {
-  background: var(--color-primary-light);
-  box-shadow: 0 4px 14px rgba(159, 140, 255, 0.45);
+  box-shadow: 0 6px 24px rgba(139, 122, 255, 0.5);
 }
 
 .dash-btn-withdraw {
-  background: var(--bg-tertiary);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
   border: 1px solid var(--border-medium);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .dash-btn-withdraw:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
-/* ── Sharp Activity Section ── */
+/* ── Glass Activity Section ── */
 .dash-activity {
   display: flex;
   flex-direction: column;
@@ -150,6 +186,7 @@
 }
 
 .dash-activity-title {
+  font-family: var(--font-display);
   font-size: var(--text-base);
   font-weight: 700;
   color: var(--text-primary);
@@ -157,49 +194,64 @@
 }
 
 .dash-filter-btn {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-glass);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .dash-filter-btn:hover {
-  background: var(--bg-glass-hover);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
-  border-color: var(--border-strong);
+  border-color: var(--border-accent);
 }
 
 .dash-filter-active {
   background: var(--color-primary-subtle);
   border-color: var(--color-primary);
   color: var(--color-primary-light);
+  box-shadow: 0 0 12px rgba(139, 122, 255, 0.15);
 }
 
 .dash-filter-dropdown {
   position: absolute;
-  top: 38px;
+  top: 40px;
   right: 0;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-xs);
-  box-shadow: var(--shadow-lg);
+  background: rgba(14, 10, 35, 0.9);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
   z-index: var(--z-dropdown);
   overflow: hidden;
-  min-width: 130px;
-  animation: fadeInDown 100ms ease-out;
+  min-width: 140px;
+  animation: fadeInDown 120ms ease-out;
+}
+
+.dash-filter-dropdown::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
 .dash-filter-option {
   display: block;
   width: 100%;
-  padding: 6px var(--space-3);
+  padding: 8px var(--space-4);
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -212,13 +264,13 @@
 }
 
 .dash-filter-option:hover {
-  background: var(--bg-glass-hover);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
 }
 
 .dash-filter-option-active {
   color: var(--color-primary-light);
-  background: var(--color-primary-subtle);
+  background: rgba(139, 122, 255, 0.1);
   font-weight: 600;
 }
 
@@ -233,9 +285,11 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  background: var(--bg-card);
+  background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   transition: all var(--transition-fast);
 }
 
@@ -243,6 +297,7 @@
   background: var(--bg-card-hover);
   border-color: var(--border-medium);
   box-shadow: var(--shadow-sm);
+  transform: translateX(2px);
 }
 
 .dash-activity-left {
@@ -252,27 +307,28 @@
 }
 
 .dash-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-xs);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: var(--text-xs);
   font-weight: 700;
-  color: #070913;
-  background: var(--avatar-color, var(--color-primary));
+  color: #FFFFFF;
+  background: var(--avatar-color, var(--gradient-primary));
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .dash-activity-info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
 .dash-activity-name {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -286,16 +342,16 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 1px;
+  gap: 2px;
 }
 
 .dash-activity-amount {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
   font-family: var(--font-mono);
 }
 
-.amount-in { color: var(--color-success); }
+.amount-in { color: var(--color-success); text-shadow: 0 0 10px rgba(93, 228, 199, 0.3); }
 .amount-out { color: var(--text-primary); }
 
 .dash-activity-status {
@@ -305,10 +361,12 @@
 
 .dash-loading, .dash-empty {
   text-align: center;
-  padding: var(--space-8);
+  padding: var(--space-10);
   color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  background: var(--bg-card);
+  font-size: var(--text-sm);
+  background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
 }

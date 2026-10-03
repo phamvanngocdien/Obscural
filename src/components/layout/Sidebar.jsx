@@ -3,7 +3,7 @@ import useI18nStore from '../../store/i18nStore';
 
 export default function Sidebar() {
   const location = useLocation();
-  const { t } = useI18nStore();
+  const { t, locale } = useI18nStore();
 
   const mainNav = [
     {

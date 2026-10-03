@@ -2,25 +2,50 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { aiApi } from '../../services/api';
 import useAuthStore from '../../store/authStore';
-import { toast } from '../common';
+import useI18nStore from '../../store/i18nStore';
 import '../../styles/AiChat.css';
 
-const SUGGESTIONS = [
-  'Tạo invoice 500 USD cho John thiết kế UI',
-  'Phân tích tài chính tháng này',
-  'Chia bill 300 USD cho Alice, Bob, Carol',
-];
+const SUGGESTIONS = {
+  vi: [
+    'Tạo hóa đơn 500 USD cho John thiết kế UI',
+    'Phân tích dòng tiền tài chính tháng này',
+    'Kiểm tra danh sách hóa đơn đang chờ',
+  ],
+  en: [
+    'Create a $500 invoice for John for UI design',
+    'Analyze my financial cash flow this month',
+    'Check my pending invoices status',
+  ],
+};
+
+const getWelcomeMessage = (locale) => {
+  if (locale === 'vi') {
+    return 'Xin chào! Tôi là Trợ lý AI của Obscural ✨\n\n• 📄 Soạn thảo hóa đơn bằng ngôn ngữ tự nhiên\n• 📊 Phân tích dòng tiền & thanh khoản\n• 🛡️ Tra cứu đối tác & ma trận tín nhiệm\n\nHãy gửi tin nhắn hoặc chọn gợi ý bên dưới!';
+  }
+  return 'Hello! I am Obscural AI Assistant ✨\n\n• 📄 Draft smart invoices in natural language\n• 📊 Analyze cash flow & telemetry\n• 🛡️ Inspect counterparties & trust scores\n\nType a message or select a suggestion below!';
+};
 
 export default function AiChat() {
   const { user } = useAuthStore();
+  const { t, locale } = useI18nStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'ai', type: 'chat', message: 'Xin chào! Tôi là AI Assistant của Obscural 🤖\n\n• 📄 Tạo invoice bằng ngôn ngữ tự nhiên\n• 📊 Phân tích tài chính\n• 💰 Chia bill thông minh\n\nHãy gửi tin nhắn hoặc chọn gợi ý bên dưới!' },
+    { role: 'ai', type: 'chat', message: getWelcomeMessage(locale) },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
+
+  // Update initial message if language changes and no chat yet
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length <= 1) {
+        return [{ role: 'ai', type: 'chat', message: getWelcomeMessage(locale) }];
+      }
+      return prev;
+    });
+  }, [locale]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -54,7 +79,9 @@ export default function AiChat() {
         {
           role: 'ai',
           type: 'error',
-          message: err.message?.includes('fetch') ? '⚠️ Server chưa chạy. Hãy kiểm tra server Express.' : `⚠️ ${err.message}`,
+          message: err.message?.includes('fetch')
+            ? (locale === 'vi' ? '⚠️ Máy chủ ngoại tuyến. Đang chạy ở chế độ cục bộ.' : '⚠️ Server offline. Operating in local mode.')
+            : `⚠️ ${err.message}`,
         },
       ]);
     } finally {
@@ -68,32 +95,7 @@ export default function AiChat() {
     navigate('/create');
   };
 
-  const handleSaveSplit = (splitData) => {
-    const splitInvoices = (splitData.participants || []).map((p) => ({
-      id: crypto.randomUUID(),
-      title: `${splitData.description || 'Split Bill'} (${p.name})`,
-      from: { name: user?.name || 'You', address: user?.address || '' },
-      to: { name: p.name, email: '', address: '' },
-      items: [{ description: `Share of ${splitData.description || 'Bill'}`, quantity: 1, price: p.share }],
-      taxPercent: 0,
-      subtotal: p.share,
-      taxAmount: 0,
-      total: p.share,
-      amount: String(p.share),
-      currency: splitData.currency || 'USD',
-      status: 'pending',
-      created_at: new Date().toISOString(),
-      creator_id: user?.address || '',
-      note: `Split bill distribution: ${p.percentage}%`,
-    }));
-
-    const saved = localStorage.getItem('obscural_local_invoices');
-    const existing = saved ? JSON.parse(saved) : [];
-    localStorage.setItem('obscural_local_invoices', JSON.stringify([...splitInvoices, ...existing]));
-    toast.success(`Created ${splitInvoices.length} split invoice(s)!`);
-    setOpen(false);
-    navigate('/invoices');
-  };
+  const currentSuggestions = SUGGESTIONS[locale] || SUGGESTIONS.en;
 
   return (
     <>
@@ -119,8 +121,8 @@ export default function AiChat() {
             <div className="ai-header-left">
               <div className="ai-avatar">✨</div>
               <div>
-                <h3 className="ai-header-title">AI Assistant</h3>
-                <span className="ai-header-sub">Powered by Gemini</span>
+                <h3 className="ai-header-title">Obscural AI Copilot</h3>
+                <span className="ai-header-sub">Gemini Intelligence</span>
               </div>
             </div>
             <button className="ai-close" onClick={() => setOpen(false)}>×</button>
@@ -133,22 +135,26 @@ export default function AiChat() {
                   <p className="ai-msg-text">{msg.message}</p>
                   {msg.type === 'invoice_draft' && msg.data && (
                     <div className="ai-result-card">
-                      <div className="ai-result-header">📄 Draft Invoice</div>
+                      <div className="ai-result-header">
+                        {locale === 'vi' ? '📄 Bản nháp hóa đơn' : '📄 Draft Invoice'}
+                      </div>
                       <div className="ai-result-body">
-                        <p><strong>To:</strong> {msg.data.recipientName}</p>
+                        <p><strong>{t('invoiceDetail.to')}</strong> {msg.data.recipientName || '—'}</p>
                         {msg.data.items?.map((it, j) => (
                           <p key={j}>• {it.description}: {it.quantity} × ${it.price}</p>
                         ))}
-                        <p><strong>Due:</strong> {msg.data.dueDate || '30 days'}</p>
+                        <p><strong>{t('invoiceDetail.dueDate')}</strong> {msg.data.dueDate || '30 days'}</p>
                       </div>
                       <button className="ai-result-action" onClick={() => applyInvoiceDraft(msg.data)}>
-                        → Áp dụng vào form
+                        {locale === 'vi' ? '→ Áp dụng vào biểu mẫu' : '→ Apply to Invoice Form'}
                       </button>
                     </div>
                   )}
                   {msg.type === 'analysis' && msg.data && (
                     <div className="ai-result-card">
-                      <div className="ai-result-header">📊 Phân tích tài chính</div>
+                      <div className="ai-result-header">
+                        {locale === 'vi' ? '📊 Phân tích tài chính' : '📊 Financial Analysis'}
+                      </div>
                       <div className="ai-result-body">
                         {msg.data.insights?.map((ins, j) => (
                           <p key={j}>{ins.icon} <strong>{ins.title}:</strong> {ins.text}</p>
@@ -157,19 +163,6 @@ export default function AiChat() {
                           <p key={j}>💡 {r}</p>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  {msg.type === 'split' && msg.data && (
-                    <div className="ai-result-card">
-                      <div className="ai-result-header">💰 Chia bill ({msg.data.totalAmount} {msg.data.currency || 'USD'})</div>
-                      <div className="ai-result-body">
-                        {msg.data.participants?.map((p, j) => (
-                          <p key={j}>• <strong>{p.name}:</strong> ${p.share} ({p.percentage}%)</p>
-                        ))}
-                      </div>
-                      <button className="ai-result-action" onClick={() => handleSaveSplit(msg.data)}>
-                        → Tạo {msg.data.participants?.length || 0} hóa đơn chia tiền
-                      </button>
                     </div>
                   )}
                 </div>
@@ -190,7 +183,7 @@ export default function AiChat() {
 
           {messages.length <= 1 && (
             <div className="ai-suggestions">
-              {SUGGESTIONS.map((s, i) => (
+              {currentSuggestions.map((s, i) => (
                 <button key={i} className="ai-suggestion" onClick={() => sendMessage(s)}>
                   {s}
                 </button>
@@ -201,14 +194,14 @@ export default function AiChat() {
           <form className="ai-input-bar" onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}>
             <input
               className="ai-input"
-              placeholder="Nhắn tin cho AI..."
+              placeholder={locale === 'vi' ? 'Nhắn tin cho trợ lý AI...' : 'Ask AI Copilot...'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
               autoFocus
             />
             <button type="submit" className="ai-send" disabled={loading || !input.trim()}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>

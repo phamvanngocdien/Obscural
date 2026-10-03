@@ -51,7 +51,7 @@ export default class ErrorBoundary extends Component {
               width: '64px',
               height: '64px',
               borderRadius: '50%',
-              background: 'rgba(255, 73, 74, 0.15)',
+              background: 'rgba(255, 107, 122, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -66,14 +66,14 @@ export default class ErrorBoundary extends Component {
               fontWeight: 700,
               color: '#FFFFFF',
               marginBottom: '8px',
-              fontFamily: 'var(--font-heading, "Plus Jakarta Sans", sans-serif)',
+              fontFamily: 'var(--font-display, "Exo 2", sans-serif)',
             }}>
               Something went wrong
             </h2>
 
             <p style={{
               fontSize: '13px',
-              color: '#A9AEC5',
+              color: 'rgba(200, 200, 230, 0.75)',
               lineHeight: 1.6,
               marginBottom: '8px',
             }}>
@@ -83,7 +83,7 @@ export default class ErrorBoundary extends Component {
             {this.state.error && (
               <p style={{
                 fontSize: '11px',
-                color: '#737B9B',
+                color: 'rgba(160, 160, 200, 0.55)',
                 background: 'rgba(255,255,255,0.03)',
                 borderRadius: '8px',
                 padding: '10px 14px',
@@ -103,7 +103,7 @@ export default class ErrorBoundary extends Component {
                   padding: '10px 24px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: 'linear-gradient(135deg, #6C5CE7, #9F8CFF)',
+                  background: 'linear-gradient(135deg, #6C5CE7, #8B7AFF)',
                   color: '#FFFFFF',
                   fontSize: '13px',
                   fontWeight: 600,

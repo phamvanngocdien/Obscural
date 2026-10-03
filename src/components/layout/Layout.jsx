@@ -124,6 +124,13 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const { t, locale } = useI18nStore();
+  const [readNotifIds, setReadNotifIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('obscural_read_notifs') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const computeNotifications = async () => {
@@ -232,23 +239,42 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
           });
         }
 
-        setNotifications(list.slice(0, 12));
+        // Apply read status from readNotifIds
+        const mappedList = list.map((n) => ({
+          ...n,
+          isRead: Boolean(n.isRead || readNotifIds.includes(n.id)),
+        }));
+
+        setNotifications(mappedList.slice(0, 12));
       } catch (err) {
         console.error('Failed to compute notifications', err);
       }
     };
 
     computeNotifications();
-  }, [user?.address, locale, t]);
+  }, [user?.address, locale, t, readNotifIds]);
 
-  const notifCount = notifications.filter((n) => n.id !== 'welcome' && !n.isRead).length;
+  const notifCount = notifications.filter((n) => !n.isRead).length;
 
   const handleMarkAllRead = useCallback(() => {
+    const allIds = notifications.map((n) => n.id);
+    setReadNotifIds(allIds);
+    localStorage.setItem('obscural_read_notifs', JSON.stringify(allIds));
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     if (user?.address) {
       notificationsApi.markAllRead(user.address).catch(() => {});
     }
-  }, [user?.address]);
+  }, [notifications, user?.address]);
+
+  const handleNotifClick = (id) => {
+    setReadNotifIds((prev) => {
+      const next = Array.from(new Set([...prev, id]));
+      localStorage.setItem('obscural_read_notifs', JSON.stringify(next));
+      return next;
+    });
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    setShowNotifications(false);
+  };
 
   return (
     <div className="layout">
@@ -292,7 +318,7 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
                   {notifCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      style={{ fontSize: '10px', color: 'var(--color-primary, #9F8CFF)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                      style={{ fontSize: '10px', color: 'var(--color-primary, #8B7AFF)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                     >
                       {t('topbar.markAllRead')}
                     </button>
@@ -306,26 +332,32 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
                   <Link
                     key={n.id}
                     to={n.link}
-                    onClick={() => setShowNotifications(false)}
+                    onClick={() => handleNotifClick(n.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: '10px',
                       padding: '12px 16px',
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
                       textDecoration: 'none',
                       color: 'inherit',
-                      background: n.type === 'warning' ? 'rgba(255, 73, 74, 0.05)' : 'transparent',
+                      background: !n.isRead ? 'rgba(139, 92, 246, 0.08)' : (n.type === 'warning' ? 'rgba(255, 107, 122, 0.05)' : 'transparent'),
                       transition: 'background 0.15s ease',
+                      position: 'relative',
                     }}
                   >
                     <span style={{ fontSize: '18px', marginTop: '1px' }}>{n.icon}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }}>{n.title}</span>
-                        <span style={{ fontSize: '10px', color: '#737B9B' }}>{n.time}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: n.isRead ? 500 : 700, color: '#FFFFFF' }}>{n.title}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {!n.isRead && (
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary, #8B5CF6)', boxShadow: '0 0 6px var(--color-primary, #8B5CF6)' }} />
+                          )}
+                          <span style={{ fontSize: '10px', color: 'rgba(180, 180, 200, 0.6)' }}>{n.time}</span>
+                        </div>
                       </div>
-                      <p style={{ fontSize: '11px', color: '#A9AEC5', margin: 0, lineHeight: 1.4 }}>{n.desc}</p>
+                      <p style={{ fontSize: '11px', color: 'rgba(220, 220, 235, 0.75)', margin: 0, lineHeight: 1.4 }}>{n.desc}</p>
                     </div>
                   </Link>
                 ))}

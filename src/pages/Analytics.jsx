@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
 import useAuthStore from '../store/authStore';
+import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
 import '../styles/Analytics.css';
 
@@ -8,6 +9,7 @@ Chart.register(...registerables);
 
 export default function Analytics() {
   const { user } = useAuthStore();
+  const { t, locale } = useI18nStore();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -97,9 +99,9 @@ export default function Analytics() {
     if (lineInstanceRef.current) lineInstanceRef.current.destroy();
     const lineCtx = lineChartRef.current.getContext('2d');
     const lineGradient = lineCtx.createLinearGradient(0, 0, 0, 220);
-    lineGradient.addColorStop(0, 'rgba(159, 140, 255, 0.35)');
-    lineGradient.addColorStop(0.5, 'rgba(159, 140, 255, 0.1)');
-    lineGradient.addColorStop(1, 'rgba(159, 140, 255, 0)');
+    lineGradient.addColorStop(0, 'rgba(139, 122, 255, 0.35)');
+    lineGradient.addColorStop(0.5, 'rgba(139, 122, 255, 0.1)');
+    lineGradient.addColorStop(1, 'rgba(139, 122, 255, 0)');
 
     lineInstanceRef.current = new Chart(lineChartRef.current, {
       type: 'line',
@@ -107,12 +109,12 @@ export default function Analytics() {
         labels: months,
         datasets: [{
           data: monthlyTotals,
-          borderColor: '#9F8CFF',
+          borderColor: '#8B7AFF',
           backgroundColor: lineGradient,
           fill: true,
           tension: 0.35,
-          pointBackgroundColor: '#9F8CFF',
-          pointBorderColor: '#0D1022',
+          pointBackgroundColor: '#8B7AFF',
+          pointBorderColor: '#1F1F1F',
           pointBorderWidth: 2,
           pointRadius: 4,
           pointHoverRadius: 7,
@@ -125,10 +127,10 @@ export default function Analytics() {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: 'rgba(13, 16, 34, 0.95)',
+            backgroundColor: 'rgba(28, 28, 34, 0.95)',
             titleColor: '#FFFFFF',
-            bodyColor: '#A9AEC5',
-            borderColor: 'rgba(159, 140, 255, 0.3)',
+            bodyColor: 'rgba(200, 200, 230, 0.75)',
+            borderColor: 'rgba(139, 122, 255, 0.3)',
             borderWidth: 1,
             padding: 10,
             boxPadding: 4,
@@ -140,14 +142,14 @@ export default function Analytics() {
         scales: {
           x: {
             grid: { color: 'rgba(255, 255, 255, 0.03)' },
-            ticks: { color: '#737B9B', font: { size: 11, family: 'Inter' } },
+            ticks: { color: 'rgba(160, 160, 200, 0.55)', font: { size: 11, family: 'Inter' } },
           },
           y: {
             beginAtZero: true,
             suggestedMax: maxMonthlyVal > 0 ? maxMonthlyVal * 1.2 : 100,
             grid: { color: 'rgba(255, 255, 255, 0.04)' },
             ticks: {
-              color: '#737B9B',
+              color: 'rgba(160, 160, 200, 0.55)',
               font: { size: 11, family: 'JetBrains Mono' },
               callback: (v) => {
                 if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`;
@@ -169,11 +171,11 @@ export default function Analytics() {
     donutInstanceRef.current = new Chart(donutChartRef.current, {
       type: 'doughnut',
       data: {
-        labels: ['Paid', 'Pending', 'Overdue'],
+        labels: [t('invoice.paid'), t('invoice.pending'), t('invoice.overdue')],
         datasets: [{
           data: hasData ? [paidCount, pendingCount, overdueCount] : [1, 0, 0],
-          backgroundColor: hasData ? ['#7EE7BD', '#9F8CFF', '#FF494A'] : ['rgba(255, 255, 255, 0.06)'],
-          borderColor: '#0D1022',
+          backgroundColor: hasData ? ['#5DE4C7', '#8B7AFF', '#FF6B7A'] : ['rgba(255, 255, 255, 0.06)'],
+          borderColor: '#1F1F1F',
           borderWidth: 2,
           hoverOffset: 4,
         }],
@@ -186,9 +188,9 @@ export default function Analytics() {
           legend: { display: false },
           tooltip: {
             enabled: hasData,
-            backgroundColor: 'rgba(13, 16, 34, 0.95)',
+            backgroundColor: 'rgba(28, 28, 34, 0.95)',
             titleColor: '#FFFFFF',
-            bodyColor: '#A9AEC5',
+            bodyColor: 'rgba(200, 200, 230, 0.75)',
             borderColor: 'rgba(255, 255, 255, 0.15)',
             borderWidth: 1,
             padding: 8,
@@ -201,14 +203,25 @@ export default function Analytics() {
       if (lineInstanceRef.current) lineInstanceRef.current.destroy();
       if (donutInstanceRef.current) donutInstanceRef.current.destroy();
     };
-  }, [loading, invoices]);
+  }, [loading, invoices, locale]);
+
+  // Status localized helper
+  const statusLabel = (status) => {
+    switch (status) {
+      case 'paid': return t('invoice.paid');
+      case 'pending': return t('invoice.pending');
+      case 'overdue': return t('invoice.overdue');
+      case 'draft': return t('invoice.draft');
+      default: return status ? status.toUpperCase() : t('invoice.pending');
+    }
+  };
 
   // Tab Filtering
   const tabs = [
-    { key: 'all', label: 'All Invoices', count: totalInvoices },
-    { key: 'paid', label: 'Paid', count: paidInvoices.length },
-    { key: 'pending', label: 'Pending', count: pendingInvoices.length },
-    { key: 'overdue', label: 'Overdue', count: overdueInvoices.length },
+    { key: 'all', label: t('analytics.allInvoices'), count: totalInvoices },
+    { key: 'paid', label: t('invoice.paid'), count: paidInvoices.length },
+    { key: 'pending', label: t('invoice.pending'), count: pendingInvoices.length },
+    { key: 'overdue', label: t('invoice.overdue'), count: overdueInvoices.length },
   ];
 
   const filteredInvoices = invoices.filter((inv) => {
@@ -221,7 +234,7 @@ export default function Analytics() {
       <div className="analytics-page">
         <div className="analytics-loading">
           <div className="spinner-ring" />
-          <span>Synchronizing telemetry stream...</span>
+          <span>{t('analytics.syncing')}</span>
         </div>
       </div>
     );
@@ -232,8 +245,8 @@ export default function Analytics() {
       {/* ── Top Header ── */}
       <div className="analytics-header">
         <div className="analytics-header-left">
-          <span className="analytics-eyebrow">FINANCIAL TELEMETRY</span>
-          <h1 className="analytics-title">Analytics & Ledger</h1>
+          <span className="analytics-eyebrow">{t('analytics.eyebrow')}</span>
+          <h1 className="analytics-title">{t('analytics.title')}</h1>
         </div>
 
         <div className="analytics-time-pills">
@@ -241,19 +254,19 @@ export default function Analytics() {
             className={`analytics-time-pill ${timeRange === 'all_time' ? 'analytics-pill-active' : ''}`}
             onClick={() => setTimeRange('all_time')}
           >
-            All Time
+            {t('analytics.allTime')}
           </button>
           <button
             className={`analytics-time-pill ${timeRange === '30d' ? 'analytics-pill-active' : ''}`}
             onClick={() => setTimeRange('30d')}
           >
-            30 Days
+            {t('analytics.30d')}
           </button>
           <button
             className={`analytics-time-pill ${timeRange === '7d' ? 'analytics-pill-active' : ''}`}
             onClick={() => setTimeRange('7d')}
           >
-            7 Days
+            {t('analytics.7d')}
           </button>
         </div>
       </div>
@@ -262,8 +275,8 @@ export default function Analytics() {
       <div className="analytics-stats-grid">
         <div className="analytics-card-stat">
           <div className="analytics-stat-top">
-            <span className="analytics-stat-label">TOTAL VOLUME</span>
-            <span className="analytics-stat-chip chip-purple">{totalInvoices} Invoices</span>
+            <span className="analytics-stat-label">{t('analytics.totalVolume')}</span>
+            <span className="analytics-stat-chip chip-purple">{totalInvoices} {t('analytics.invoices')}</span>
           </div>
           <div className="analytics-stat-num-wrap">
             <span className="analytics-stat-symbol">$</span>
@@ -271,13 +284,13 @@ export default function Analytics() {
               {totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
-          <span className="analytics-stat-footnote">Gross invoiced on Rialo</span>
+          <span className="analytics-stat-footnote">{t('analytics.grossInvoiced')}</span>
         </div>
 
         <div className="analytics-card-stat">
           <div className="analytics-stat-top">
-            <span className="analytics-stat-label">TOTAL SETTLED</span>
-            <span className="analytics-stat-chip chip-green">Paid</span>
+            <span className="analytics-stat-label">{t('analytics.totalSettled')}</span>
+            <span className="analytics-stat-chip chip-green">{t('invoice.paid')}</span>
           </div>
           <div className="analytics-stat-num-wrap">
             <span className="analytics-stat-symbol">$</span>
@@ -285,13 +298,13 @@ export default function Analytics() {
               {totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
-          <span className="analytics-stat-footnote">{paidInvoices.length} transactions completed</span>
+          <span className="analytics-stat-footnote">{paidInvoices.length} {t('analytics.txCompleted')}</span>
         </div>
 
         <div className="analytics-card-stat">
           <div className="analytics-stat-top">
-            <span className="analytics-stat-label">OUTSTANDING</span>
-            <span className="analytics-stat-chip chip-amber">{pendingInvoices.length} Pending</span>
+            <span className="analytics-stat-label">{t('analytics.outstanding')}</span>
+            <span className="analytics-stat-chip chip-amber">{pendingInvoices.length} {t('invoice.pending')}</span>
           </div>
           <div className="analytics-stat-num-wrap">
             <span className="analytics-stat-symbol">$</span>
@@ -299,12 +312,12 @@ export default function Analytics() {
               {totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
-          <span className="analytics-stat-footnote">Awaiting counterparty release</span>
+          <span className="analytics-stat-footnote">{t('analytics.awaitingRelease')}</span>
         </div>
 
         <div className="analytics-card-stat">
           <div className="analytics-stat-top">
-            <span className="analytics-stat-label">SETTLEMENT RATE</span>
+            <span className="analytics-stat-label">{t('analytics.settlementRate')}</span>
             <span className="analytics-stat-chip chip-blue">&lt;1s Finality</span>
           </div>
           <div className="analytics-stat-num-wrap">
@@ -312,7 +325,7 @@ export default function Analytics() {
               {settlementRate}%
             </span>
           </div>
-          <span className="analytics-stat-footnote">Automated escrow success</span>
+          <span className="analytics-stat-footnote">{t('analytics.autoEscrow')}</span>
         </div>
       </div>
 
@@ -322,8 +335,8 @@ export default function Analytics() {
         <div className="analytics-chart-card timeline-card">
           <div className="analytics-card-header">
             <div>
-              <span className="analytics-chart-eyebrow">CASH FLOW VELOCITY</span>
-              <h2 className="analytics-chart-heading">Monthly Volume Overview</h2>
+              <span className="analytics-chart-eyebrow">{t('analytics.cashFlow')}</span>
+              <h2 className="analytics-chart-heading">{t('analytics.monthlyVolume')}</h2>
             </div>
             <span className="analytics-chart-badge">USDT / Rialo</span>
           </div>
@@ -336,8 +349,8 @@ export default function Analytics() {
         <div className="analytics-chart-card status-card">
           <div className="analytics-card-header">
             <div>
-              <span className="analytics-chart-eyebrow">DISTRIBUTION</span>
-              <h2 className="analytics-chart-heading">Settlement Status</h2>
+              <span className="analytics-chart-eyebrow">{t('analytics.distribution')}</span>
+              <h2 className="analytics-chart-heading">{t('analytics.settlementStatus')}</h2>
             </div>
           </div>
 
@@ -346,7 +359,7 @@ export default function Analytics() {
               <canvas ref={donutChartRef} />
               <div className="analytics-donut-center">
                 <span className="donut-center-num">{totalInvoices}</span>
-                <span className="donut-center-lbl">Total</span>
+                <span className="donut-center-lbl">{locale === 'vi' ? 'Tổng' : 'Total'}</span>
               </div>
             </div>
 
@@ -354,7 +367,7 @@ export default function Analytics() {
               <div className="status-legend-row">
                 <div className="status-legend-left">
                   <span className="status-dot dot-green" />
-                  <span className="status-lbl">Paid</span>
+                  <span className="status-lbl">{t('invoice.paid')}</span>
                 </div>
                 <span className="status-val">${totalPaid.toFixed(2)} ({paidInvoices.length})</span>
               </div>
@@ -362,7 +375,7 @@ export default function Analytics() {
               <div className="status-legend-row">
                 <div className="status-legend-left">
                   <span className="status-dot dot-purple" />
-                  <span className="status-lbl">Pending</span>
+                  <span className="status-lbl">{t('invoice.pending')}</span>
                 </div>
                 <span className="status-val">${totalPending.toFixed(2)} ({pendingInvoices.length})</span>
               </div>
@@ -370,7 +383,7 @@ export default function Analytics() {
               <div className="status-legend-row">
                 <div className="status-legend-left">
                   <span className="status-dot dot-red" />
-                  <span className="status-lbl">Overdue</span>
+                  <span className="status-lbl">{t('invoice.overdue')}</span>
                 </div>
                 <span className="status-val">${totalOverdue.toFixed(2)} ({overdueInvoices.length})</span>
               </div>
@@ -383,8 +396,8 @@ export default function Analytics() {
       <div className="analytics-table-section">
         <div className="analytics-table-header">
           <div>
-            <span className="analytics-chart-eyebrow">AUDIT TRAIL</span>
-            <h2 className="analytics-chart-heading">On-Chain Invoice Ledger</h2>
+            <span className="analytics-chart-eyebrow">{t('analytics.auditTrail')}</span>
+            <h2 className="analytics-chart-heading">{t('analytics.ledger')}</h2>
           </div>
 
           <div className="analytics-tabs-wrap">
@@ -405,12 +418,12 @@ export default function Analytics() {
           <table className="analytics-ledger-table">
             <thead>
               <tr>
-                <th>INVOICE ID</th>
-                <th>COUNTERPARTY</th>
-                <th>DATE ISSUED</th>
-                <th>DUE DATE</th>
-                <th>AMOUNT</th>
-                <th>STATUS</th>
+                <th>{t('analytics.colId')}</th>
+                <th>{t('analytics.colCounterparty')}</th>
+                <th>{t('analytics.colDateIssued')}</th>
+                <th>{t('analytics.colDueDate')}</th>
+                <th>{t('analytics.colAmount')}</th>
+                <th>{t('analytics.colStatus')}</th>
               </tr>
             </thead>
             <tbody>
@@ -425,8 +438,8 @@ export default function Analytics() {
                           <line x1="16" y1="17" x2="8" y2="17" />
                         </svg>
                       </div>
-                      <span className="empty-title">No telemetry records found</span>
-                      <span className="empty-desc">Create or settle an invoice to populate on-chain metrics</span>
+                      <span className="empty-title">{t('analytics.noRecords')}</span>
+                      <span className="empty-desc">{t('analytics.createToPopulate')}</span>
                     </div>
                   </td>
                 </tr>
@@ -435,8 +448,8 @@ export default function Analytics() {
                   const displayId = inv.id ? (inv.id.length > 12 ? `${inv.id.slice(0, 8)}...` : inv.id) : 'INV-001';
                   const recipient = inv.recipient_id || inv.to_name || '0x71C8...8357';
                   const formattedRecipient = recipient.length > 14 ? `${recipient.slice(0, 6)}...${recipient.slice(-4)}` : recipient;
-                  const dateStr = inv.created_at ? new Date(inv.created_at).toLocaleDateString() : 'Today';
-                  const dueStr = inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—';
+                  const dateStr = inv.created_at ? new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : (locale === 'vi' ? 'Hôm nay' : 'Today');
+                  const dueStr = inv.due_date ? new Date(inv.due_date).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : '—';
                   const amountNum = parseFloat(inv.amount || 0);
 
                   return (
@@ -463,7 +476,7 @@ export default function Analytics() {
                       </td>
                       <td>
                         <span className={`status-pill pill-${inv.status || 'pending'}`}>
-                          {inv.status ? inv.status.toUpperCase() : 'PENDING'}
+                          {statusLabel(inv.status)}
                         </span>
                       </td>
                     </tr>

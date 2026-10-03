@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from '../components/common';
 import useAuthStore from '../store/authStore';
+import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
 import '../styles/Dashboard.css';
 
@@ -13,6 +14,7 @@ const statusColors = {
 
 export default function Dashboard() {
   const { user } = useAuthStore();
+  const { t, locale } = useI18nStore();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState(null);
@@ -142,7 +144,7 @@ export default function Dashboard() {
     <div className="dashboard">
       {/* Wallet Section */}
       <div className="dash-wallet">
-        <h2 className="dash-wallet-title">Wallet</h2>
+        <h2 className="dash-wallet-title">{t('dashboard.wallet', 'Wallet')}</h2>
         <div className="dash-balance">
           <span className="dash-balance-symbol">$</span>
           <span className="dash-balance-whole">{whole || '0'}</span>
@@ -155,15 +157,15 @@ export default function Dashboard() {
           <span className="dash-token-amount">{ethBalance.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH</span>
         </div>
         <div className="dash-wallet-actions">
-          <button className="dash-wallet-btn dash-btn-deposit" onClick={() => setShowDepositModal(true)}>Deposit</button>
-          <button className="dash-wallet-btn dash-btn-withdraw" onClick={() => setShowWithdrawModal(true)}>Withdraw</button>
+          <button className="dash-wallet-btn dash-btn-deposit" onClick={() => setShowDepositModal(true)}>{t('dashboard.deposit', 'Deposit')}</button>
+          <button className="dash-wallet-btn dash-btn-withdraw" onClick={() => setShowWithdrawModal(true)}>{t('dashboard.withdraw', 'Withdraw')}</button>
         </div>
       </div>
 
       {/* Activity Section */}
       <div className="dash-activity">
         <div className="dash-activity-header">
-          <h3 className="dash-activity-title">Activity</h3>
+          <h3 className="dash-activity-title">{t('dashboard.activity', 'Activity')}</h3>
           <div style={{ position: 'relative' }}>
             <button className={`dash-filter-btn ${showFilter ? 'dash-filter-active' : ''}`} onClick={() => setShowFilter(!showFilter)}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -172,16 +174,21 @@ export default function Dashboard() {
             </button>
             {showFilter && (
               <div className="dash-filter-dropdown">
-                {['All', 'Success', 'Pending', 'Failed'].map((s) => (
+                {[
+                  { key: null, label: locale === 'vi' ? 'Tất cả' : 'All' },
+                  { key: 'Success', label: locale === 'vi' ? 'Thành công' : 'Success' },
+                  { key: 'Pending', label: locale === 'vi' ? 'Chờ xử lý' : 'Pending' },
+                  { key: 'Failed', label: locale === 'vi' ? 'Thất bại' : 'Failed' },
+                ].map((s) => (
                   <button
-                    key={s}
-                    className={`dash-filter-option ${filterStatus === (s === 'All' ? null : s) ? 'dash-filter-option-active' : ''} ${!filterStatus && s === 'All' ? 'dash-filter-option-active' : ''}`}
+                    key={s.label}
+                    className={`dash-filter-option ${filterStatus === s.key ? 'dash-filter-option-active' : ''}`}
                     onClick={() => {
-                      setFilterStatus(s === 'All' ? null : s);
+                      setFilterStatus(s.key);
                       setShowFilter(false);
                     }}
                   >
-                    {s}
+                    {s.label}
                   </button>
                 ))}
               </div>
@@ -190,9 +197,9 @@ export default function Dashboard() {
         </div>
 
         {loading ? (
-          <div className="dash-loading">Loading...</div>
+          <div className="dash-loading">{t('common.loading', 'Loading...')}</div>
         ) : activities.length === 0 ? (
-          <div className="dash-empty">No recent activity</div>
+          <div className="dash-empty">{t('dashboard.noActivity', 'No recent activity')}</div>
         ) : (
           <div className="dash-activity-list">
             {activities.filter((a) => !filterStatus || a.status === filterStatus).map((a) => (
@@ -224,17 +231,17 @@ export default function Dashboard() {
       {showDepositModal && (
         <div
           className="contact-modal-overlay"
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setShowDepositModal(false)}
         >
           <div
             className="contact-modal"
-            style={{ width: '90%', maxWidth: '380px', background: '#0D1022', border: '1px solid rgba(159, 140, 255, 0.3)', borderRadius: '16px', padding: '24px', textAlign: 'center', position: 'relative' }}
+            style={{ width: '90%', maxWidth: '380px', background: 'var(--bg-card-solid, #26262B)', border: '1px solid var(--border-medium)', borderRadius: '16px', padding: '24px', textAlign: 'center', position: 'relative', boxShadow: 'var(--shadow-xl)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>Deposit Crypto</h3>
-              <span style={{ fontSize: '10px', background: 'rgba(159, 140, 255, 0.2)', color: '#9F8CFF', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Rialo / Sepolia</span>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>{locale === 'vi' ? 'Nạp tiền điện tử' : 'Deposit Crypto'}</h3>
+              <span style={{ fontSize: '10px', background: 'rgba(139, 92, 246, 0.2)', color: '#A78BFA', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Rialo / Sepolia</span>
             </div>
 
             <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '16px' }}>
@@ -242,17 +249,17 @@ export default function Dashboard() {
                 value={user?.address || '0x71C8A18F83441B3BfA10cEaFEeD0929285098357'}
                 size={180}
                 bgColor="#FFFFFF"
-                fgColor="#0D1022"
+                fgColor="#1F1F1F"
                 level="M"
               />
             </div>
 
-            <p style={{ fontSize: '11px', color: '#A9AEC5', marginBottom: '12px' }}>
-              Send only ETH or supported tokens (USDC, DAI) to this address on Sepolia.
+            <p style={{ fontSize: '11px', color: 'rgba(200, 200, 230, 0.75)', marginBottom: '12px' }}>
+              {locale === 'vi' ? 'Chỉ gửi ETH hoặc các token được hỗ trợ (USDC, DAI) đến địa chỉ này.' : 'Send only ETH or supported tokens (USDC, DAI) to this address on Sepolia.'}
             </p>
 
             <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', marginBottom: '20px' }}>
-              <span style={{ fontSize: '10px', color: '#737B9B', display: 'block', textTransform: 'uppercase', marginBottom: '4px' }}>Your Wallet Address</span>
+              <span style={{ fontSize: '10px', color: 'rgba(180, 180, 200, 0.65)', display: 'block', textTransform: 'uppercase', marginBottom: '4px' }}>{locale === 'vi' ? 'Địa chỉ ví của bạn' : 'Your Wallet Address'}</span>
               <span style={{ fontSize: '11px', color: '#FFFFFF', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                 {user?.address || '0x71C8A18F83441B3BfA10cEaFEeD0929285098357'}
               </span>
@@ -264,14 +271,14 @@ export default function Dashboard() {
                 style={{ flex: 1, padding: '10px' }}
                 onClick={() => handleCopy(user?.address || '0x71C8A18F83441B3BfA10cEaFEeD0929285098357')}
               >
-                {copied ? '✓ Copied' : 'Copy Address'}
+                {copied ? (locale === 'vi' ? '✓ Đã sao chép' : '✓ Copied') : (locale === 'vi' ? 'Sao chép địa chỉ' : 'Copy Address')}
               </button>
               <button
                 className="btn"
                 style={{ background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', padding: '10px 16px' }}
                 onClick={() => setShowDepositModal(false)}
               >
-                Done
+                {locale === 'vi' ? 'Xong' : 'Done'}
               </button>
             </div>
           </div>
@@ -282,23 +289,23 @@ export default function Dashboard() {
       {showWithdrawModal && (
         <div
           className="contact-modal-overlay"
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setShowWithdrawModal(false)}
         >
           <div
             className="contact-modal"
-            style={{ width: '90%', maxWidth: '400px', background: '#0D1022', border: '1px solid rgba(159, 140, 255, 0.3)', borderRadius: '16px', padding: '24px', position: 'relative' }}
+            style={{ width: '90%', maxWidth: '400px', background: 'var(--bg-card-solid, #26262B)', border: '1px solid var(--border-medium)', borderRadius: '16px', padding: '24px', position: 'relative', boxShadow: 'var(--shadow-xl)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>Withdraw Funds</h3>
-            <p style={{ fontSize: '12px', color: '#A9AEC5', marginBottom: '16px' }}>
-              Transfer ETH from your Obscural wallet.
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>{locale === 'vi' ? 'Rút tiền' : 'Withdraw Funds'}</h3>
+            <p style={{ fontSize: '12px', color: 'rgba(200, 200, 230, 0.75)', marginBottom: '16px' }}>
+              {locale === 'vi' ? 'Chuyển ETH từ ví Obscural của bạn.' : 'Transfer ETH from your Obscural wallet.'}
             </p>
 
             <form onSubmit={handleWithdrawSubmit}>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '11px', color: '#737B9B', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 600 }}>
-                  Recipient Address
+                <label style={{ display: 'block', fontSize: '11px', color: 'rgba(180, 180, 200, 0.65)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 600 }}>
+                  {locale === 'vi' ? 'Địa chỉ người nhận' : 'Recipient Address'}
                 </label>
                 <input
                   type="text"
@@ -312,8 +319,8 @@ export default function Dashboard() {
 
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '11px', color: '#737B9B', textTransform: 'uppercase', fontWeight: 600 }}>Amount (ETH)</label>
-                  <span style={{ fontSize: '11px', color: '#9F8CFF', cursor: 'pointer' }} onClick={() => setWithdrawAmount(ethBalance.toString())}>
+                  <label style={{ fontSize: '11px', color: 'rgba(180, 180, 200, 0.65)', textTransform: 'uppercase', fontWeight: 600 }}>{locale === 'vi' ? 'Số lượng (ETH)' : 'Amount (ETH)'}</label>
+                  <span style={{ fontSize: '11px', color: '#8B5CF6', cursor: 'pointer', fontWeight: 600 }} onClick={() => setWithdrawAmount(ethBalance.toString())}>
                     Max: {ethBalance.toFixed(4)} ETH
                   </span>
                 </div>
@@ -335,7 +342,7 @@ export default function Dashboard() {
                   style={{ flex: 1, padding: '10px' }}
                   disabled={withdrawing}
                 >
-                  {withdrawing ? 'Sending...' : 'Confirm Withdraw'}
+                  {withdrawing ? (locale === 'vi' ? 'Đang gửi...' : 'Sending...') : (locale === 'vi' ? 'Xác nhận rút tiền' : 'Confirm Withdraw')}
                 </button>
                 <button
                   type="button"
@@ -343,7 +350,7 @@ export default function Dashboard() {
                   style={{ background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', padding: '10px 16px' }}
                   onClick={() => setShowWithdrawModal(false)}
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
               </div>
             </form>
