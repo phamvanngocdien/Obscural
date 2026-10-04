@@ -51,6 +51,7 @@ function AppContent() {
       return;
     }
 
+    // Wait for wallet address (embedded wallet may take a moment to create after email login)
     if (wallet.isConnected && wallet.account) {
       if (!user || user.address !== wallet.account) {
         localStorage.setItem('obscural_last_active', Date.now().toString());
@@ -59,6 +60,16 @@ function AppContent() {
           wallet.account,
           wallet.balance,
           wallet.chainId,
+          { name: wallet.userName, email: wallet.userEmail }
+        );
+      }
+    } else if (wallet.isConnected && !wallet.account && wallet.userEmail) {
+      // Email login but wallet not yet created — use email temporarily
+      if (!user) {
+        onConnect(
+          wallet.userEmail,
+          '0',
+          null,
           { name: wallet.userName, email: wallet.userEmail }
         );
       }
