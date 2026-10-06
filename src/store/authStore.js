@@ -63,7 +63,8 @@ const useAuthStore = create((set, get) => ({
   /** Update balance */
   updateBalance: (balance) =>
     set((state) => ({
-      wallet: { ...state.wallet, balance },
+      wallet: { ...state.wallet, balance: balance || '0' },
+      user: state.user ? { ...state.user, balance: balance || '0' } : null,
     })),
 
   /** Set loading state */

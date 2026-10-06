@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 
-const SEPOLIA_CHAIN_ID = '0xaa36a7'; // 11155111
+const SEPOLIA_CHAIN_ID = 11155111;
+const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
 
 export default function useWallet() {
   const { login, logout, authenticated, ready, user: privyUser, createWallet } = usePrivy();
@@ -32,20 +33,41 @@ export default function useWallet() {
 
   // The primary account is always the wallet address (for on-chain interactions)
   const account = walletAddress;
-  const isCorrectNetwork = chainId === parseInt(SEPOLIA_CHAIN_ID, 16);
+  const isCorrectNetwork = chainId === SEPOLIA_CHAIN_ID;
 
   // Auto-create embedded wallet if user logged in via email/Google but has no wallet yet
   useEffect(() => {
     if (authenticated && privyUser && !walletAddress && createWallet) {
       createWallet().catch(err => {
-        // Wallet may already exist or be creating
         console.warn('Auto-create wallet:', err?.message || err);
       });
     }
   }, [authenticated, privyUser, walletAddress, createWallet]);
 
+  // Robust balance fetcher: queries wallet provider if on Sepolia, otherwise uses Sepolia RPC fallback
+  const fetchBalance = useCallback(async (addr, prov) => {
+    if (!addr) return;
+    try {
+      if (prov) {
+        const net = await prov.getNetwork();
+        if (Number(net.chainId) === SEPOLIA_CHAIN_ID) {
+          const bal = await prov.getBalance(addr);
+          setBalance(ethers.formatEther(bal));
+          return;
+        }
+      }
+      // Direct Sepolia balance check
+      const rpc = new ethers.JsonRpcProvider(SEPOLIA_RPC);
+      const bal = await rpc.getBalance(addr);
+      setBalance(ethers.formatEther(bal));
+    } catch (err) {
+      console.warn('Failed to fetch Sepolia balance:', err);
+    }
+  }, []);
+
   // Setup provider and signer when wallet changes
   useEffect(() => {
+    let timer;
     const initProvider = async () => {
       if (!activeWallet) {
         setProvider(null);
@@ -55,23 +77,52 @@ export default function useWallet() {
         return;
       }
       try {
+        // Auto-switch to Sepolia if supported
+        if (activeWallet.switchChain) {
+          try {
+            await activeWallet.switchChain(SEPOLIA_CHAIN_ID);
+          } catch (switchErr) {
+            console.warn('Auto switch to Sepolia:', switchErr?.message || switchErr);
+          }
+        }
+
         const ethProvider = await activeWallet.getEthereumProvider();
         const browserProvider = new ethers.BrowserProvider(ethProvider);
         const walletSigner = await browserProvider.getSigner();
         const network = await browserProvider.getNetwork();
+        const currentChainId = Number(network.chainId);
         
         setProvider(browserProvider);
         setSigner(walletSigner);
-        setChainId(Number(network.chainId));
+        setChainId(currentChainId);
 
-        const bal = await browserProvider.getBalance(activeWallet.address);
-        setBalance(ethers.formatEther(bal));
+        await fetchBalance(activeWallet.address, browserProvider);
+
+        // Auto refresh balance every 10 seconds to detect incoming deposits
+        timer = setInterval(() => {
+          fetchBalance(activeWallet.address, browserProvider);
+        }, 10000);
       } catch (err) {
         console.warn('Failed to init provider:', err);
+        if (activeWallet?.address) {
+          fetchBalance(activeWallet.address);
+        }
       }
     };
     initProvider();
-  }, [activeWallet]);
+
+    const handleFocus = () => {
+      if (activeWallet?.address) {
+        fetchBalance(activeWallet.address);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      if (timer) clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [activeWallet, fetchBalance]);
 
   const openConnectModal = login;
   const disconnect = logout;
@@ -79,12 +130,14 @@ export default function useWallet() {
   const switchToSepolia = useCallback(async () => {
     if (!activeWallet) return;
     try {
-      await activeWallet.switchChain(parseInt(SEPOLIA_CHAIN_ID, 16));
+      await activeWallet.switchChain(SEPOLIA_CHAIN_ID);
+      setChainId(SEPOLIA_CHAIN_ID);
+      await fetchBalance(activeWallet.address);
     } catch (err) {
       console.warn('Network switch error:', err);
       setError('Failed to switch network.');
     }
-  }, [activeWallet]);
+  }, [activeWallet, fetchBalance]);
 
   const shortAddress = account
     ? `${account.slice(0, 6)}...${account.slice(-4)}`
@@ -112,7 +165,8 @@ export default function useWallet() {
     // Login method detection
     loginMethod: emailAddress ? 'email' : googleEmail ? 'google' : walletAddress ? 'wallet' : null,
 
-    // Legacy placeholders so existing components don't break
+    // Actions & Legacy placeholders
+    refreshBalance: () => fetchBalance(activeWallet?.address, provider),
     availableWallets: [],
     showModal: false,
     openConnectModal,

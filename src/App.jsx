@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useCallback } from 'react';
 import { PrivyProvider } from '@privy-io/react-auth';
+import { sepolia } from 'viem/chains';
 import { ToastContainer, ImmersiveBackground } from './components/common';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Layout from './components/layout/Layout';
@@ -19,7 +20,7 @@ import useAuthStore from './store/authStore';
 
 function AppContent() {
   const wallet = useWallet();
-  const { user, onConnect, onDisconnect, setInitialized } = useAuthStore();
+  const { user, onConnect, onDisconnect, updateBalance, setInitialized } = useAuthStore();
 
   // Mouse-reactive background spotlight (inspired by vitael.xyz)
   useEffect(() => {
@@ -62,6 +63,8 @@ function AppContent() {
           wallet.chainId,
           { name: wallet.userName, email: wallet.userEmail }
         );
+      } else if (user.balance !== wallet.balance) {
+        updateBalance(wallet.balance);
       }
     } else if (wallet.isConnected && !wallet.account && wallet.userEmail) {
       // Email login but wallet not yet created — use email temporarily
@@ -77,7 +80,7 @@ function AppContent() {
       onDisconnect();
     }
     setInitialized();
-  }, [wallet.isConnected, wallet.account, wallet.balance, wallet.chainId, wallet.userName, wallet.userEmail, user, onConnect, onDisconnect, setInitialized]);
+  }, [wallet.isConnected, wallet.account, wallet.balance, wallet.chainId, wallet.userName, wallet.userEmail, user, onConnect, onDisconnect, updateBalance, setInitialized]);
 
   const handleLogin = () => {
     wallet.openConnectModal();
@@ -172,6 +175,8 @@ export default function App() {
       <PrivyProvider
         appId={import.meta.env.VITE_PRIVY_APP_ID || 'cm0xx_placeholder_app_id'}
         config={{
+          defaultChain: sepolia,
+          supportedChains: [sepolia],
           loginMethods: ['email', 'google'],
           appearance: {
             theme: 'dark',

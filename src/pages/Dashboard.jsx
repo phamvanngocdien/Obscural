@@ -13,7 +13,7 @@ const statusColors = {
 };
 
 export default function Dashboard() {
-  const { user } = useAuthStore();
+  const { user, wallet } = useAuthStore();
   const { t, locale } = useI18nStore();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +102,7 @@ export default function Dashboard() {
   });
 
   // Convert ETH balance to USD
-  const ethBalance = parseFloat(user?.balance || 0);
+  const ethBalance = parseFloat(user?.balance || wallet?.balance || 0);
   const usdValue = ethBalance * (ethPrice || 2600);
   const walletBalance = usdValue.toFixed(2);
   const [whole, decimal] = walletBalance.split('.');

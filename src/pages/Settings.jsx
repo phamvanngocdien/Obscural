@@ -117,6 +117,16 @@ export default function Settings() {
   const isLoggedIn = Boolean(user || wallet?.isConnected || wallet?.account);
   const displayEmail = user?.email || profile.email || user?.address || 'Not connected';
 
+  const [copiedWallet, setCopiedWallet] = useState(false);
+
+  const handleCopyWallet = () => {
+    if (!wallet.walletAddress) return;
+    navigator.clipboard.writeText(wallet.walletAddress);
+    setCopiedWallet(true);
+    toast.success(locale === 'vi' ? 'Đã sao chép địa chỉ ví!' : 'Wallet address copied!');
+    setTimeout(() => setCopiedWallet(false), 2000);
+  };
+
   return (
     <div className="settings-page">
       {/* Profile Section */}
@@ -278,65 +288,78 @@ export default function Settings() {
       <section className="settings-section">
         <h2 className="settings-section-title">{locale === 'vi' ? 'Tài khoản' : 'Account'}</h2>
         <div className="settings-wallet-card">
-          {/* Login identity */}
-          <div className="settings-wallet-info">
-            <span className="settings-wallet-label">{locale === 'vi' ? 'Đăng nhập với' : 'Signed in as'}</span>
-            <span className="settings-wallet-address">{displayEmail}</span>
+          <div className="settings-wallet-grid">
+            {/* Login identity */}
+            <div className="settings-wallet-info">
+              <span className="settings-wallet-label">{locale === 'vi' ? 'Đăng nhập với' : 'Signed in as'}</span>
+              <span className="settings-wallet-address">{displayEmail}</span>
+            </div>
+
+            {/* Wallet address */}
+            {wallet.walletAddress && (
+              <div className="settings-wallet-info">
+                <span className="settings-wallet-label">{locale === 'vi' ? 'Ví blockchain' : 'Wallet address'}</span>
+                <div className="settings-wallet-address-row">
+                  <span className="settings-wallet-address-chip" title={wallet.walletAddress}>
+                    {wallet.shortAddress}
+                  </span>
+                  <button
+                    type="button"
+                    className={`settings-copy-btn ${copiedWallet ? 'settings-copy-btn-copied' : ''}`}
+                    title={locale === 'vi' ? (copiedWallet ? 'Đã sao chép' : 'Sao chép địa chỉ') : (copiedWallet ? 'Copied!' : 'Copy address')}
+                    aria-label="Copy wallet address"
+                    onClick={handleCopyWallet}
+                  >
+                    {copiedWallet ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Balance & Network */}
+            {wallet.hasWallet && (
+              <div className="settings-wallet-info">
+                <span className="settings-wallet-label">{locale === 'vi' ? 'Số dư & Mạng' : 'Balance & Network'}</span>
+                <div className="settings-wallet-balance-row">
+                  <span className="settings-wallet-balance-val">
+                    {parseFloat(wallet.balance).toFixed(4)} ETH
+                  </span>
+                  <span className={`settings-network-badge ${wallet.isCorrectNetwork ? 'network-sepolia' : 'network-other'}`}>
+                    <span className="network-dot" />
+                    {wallet.isCorrectNetwork ? 'Sepolia' : `Chain ${wallet.chainId || '—'}`}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Waiting for wallet */}
+            {wallet.isConnected && !wallet.hasWallet && (
+              <div className="settings-wallet-info">
+                <span className="settings-wallet-label">{locale === 'vi' ? 'Trạng thái ví' : 'Wallet Status'}</span>
+                <span className="settings-wallet-creating">
+                  <span className="settings-spinner-small" />
+                  {locale === 'vi' ? 'Đang tạo ví...' : 'Creating wallet...'}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Wallet address */}
-          {wallet.walletAddress && (
-            <div className="settings-wallet-info" style={{ marginTop: '12px' }}>
-              <span className="settings-wallet-label">{locale === 'vi' ? 'Ví blockchain' : 'Wallet address'}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="settings-wallet-address" style={{ fontFamily: 'monospace', fontSize: '13px' }}>
-                  {wallet.shortAddress}
-                </span>
-                <button
-                  className="settings-copy-btn"
-                  title={locale === 'vi' ? 'Sao chép' : 'Copy'}
-                  onClick={() => {
-                    navigator.clipboard.writeText(wallet.walletAddress);
-                    toast.success(locale === 'vi' ? 'Đã sao chép địa chỉ ví!' : 'Wallet address copied!');
-                  }}
-                  style={{
-                    background: 'rgba(139, 92, 246, 0.15)',
-                    border: '1px solid rgba(139, 92, 246, 0.3)',
-                    borderRadius: '6px',
-                    padding: '4px 8px',
-                    cursor: 'pointer',
-                    color: 'var(--text-secondary)',
-                    fontSize: '11px',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  📋
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Balance & Network */}
-          {wallet.hasWallet && (
-            <div className="settings-wallet-info" style={{ marginTop: '12px' }}>
-              <span className="settings-wallet-label">{locale === 'vi' ? 'Số dư / Mạng' : 'Balance / Network'}</span>
-              <span className="settings-wallet-address" style={{ fontSize: '13px' }}>
-                {parseFloat(wallet.balance).toFixed(4)} ETH · {wallet.isCorrectNetwork ? 'Sepolia' : `Chain ${wallet.chainId || '—'}`}
-              </span>
-            </div>
-          )}
-
-          {/* Waiting for wallet */}
-          {wallet.isConnected && !wallet.hasWallet && (
-            <div className="settings-wallet-info" style={{ marginTop: '12px' }}>
-              <span className="settings-wallet-label" style={{ color: 'var(--color-warning, #f59e0b)' }}>
-                {locale === 'vi' ? '⏳ Đang tạo ví...' : '⏳ Creating wallet...'}
-              </span>
-            </div>
-          )}
-
           {isLoggedIn && (
-            <button className="settings-btn-disconnect" onClick={handleLogout} style={{ marginTop: '16px' }}>
+            <button className="settings-btn-disconnect" onClick={handleLogout}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
               {t('settings.logout')}
             </button>
           )}
