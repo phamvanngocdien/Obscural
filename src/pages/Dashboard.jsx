@@ -47,32 +47,12 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Load local invoices
-        const localSaved = localStorage.getItem('obscural_local_invoices');
-        const localInvoices = localSaved ? JSON.parse(localSaved) : [];
-
-        // Load API invoices (5s timeout)
-        let apiInvoices = [];
-        try {
-          const res = await Promise.race([
-            api.invoiceApi.list({ userId: user.address }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
-          ]);
-          apiInvoices = res.data || [];
-        } catch (err) {
-          console.warn('Dashboard: API unavailable, using local data.', err.message);
-        }
-
-        const seenIds = new Set(localInvoices.map((inv) => inv.id));
-        const merged = [...localInvoices];
-        apiInvoices.forEach((inv) => {
-          if (!seenIds.has(inv.id)) merged.push(inv);
-        });
-        merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-        setInvoices(merged);
+        const res = await api.invoiceApi.list({ userId: user.address });
+        const list = res.data || [];
+        list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setInvoices(list);
       } catch (err) {
-        console.error('Failed to load dashboard data', err);
+        console.error('Failed to load dashboard data from Supabase', err);
       } finally {
         setLoading(false);
       }
@@ -246,7 +226,7 @@ export default function Dashboard() {
 
             <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '16px' }}>
               <QRCodeSVG
-                value={user?.address || '0x71C8A18F83441B3BfA10cEaFEeD0929285098357'}
+                value={user?.address || wallet?.address || ''}
                 size={180}
                 bgColor="#FFFFFF"
                 fgColor="#1F1F1F"
@@ -261,7 +241,7 @@ export default function Dashboard() {
             <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', marginBottom: '20px' }}>
               <span style={{ fontSize: '10px', color: 'rgba(180, 180, 200, 0.65)', display: 'block', textTransform: 'uppercase', marginBottom: '4px' }}>{locale === 'vi' ? 'Địa chỉ ví của bạn' : 'Your Wallet Address'}</span>
               <span style={{ fontSize: '11px', color: '#FFFFFF', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                {user?.address || '0x71C8A18F83441B3BfA10cEaFEeD0929285098357'}
+                {user?.address || wallet?.address || (locale === 'vi' ? 'Đang kết nối ví...' : 'Connecting wallet...')}
               </span>
             </div>
 
@@ -269,7 +249,7 @@ export default function Dashboard() {
               <button
                 className="btn btn-primary"
                 style={{ flex: 1, padding: '10px' }}
-                onClick={() => handleCopy(user?.address || '0x71C8A18F83441B3BfA10cEaFEeD0929285098357')}
+                onClick={() => handleCopy(user?.address || wallet?.address || '')}
               >
                 {copied ? (locale === 'vi' ? '✓ Đã sao chép' : '✓ Copied') : (locale === 'vi' ? 'Sao chép địa chỉ' : 'Copy Address')}
               </button>

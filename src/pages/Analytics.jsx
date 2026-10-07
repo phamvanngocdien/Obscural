@@ -23,39 +23,19 @@ export default function Analytics() {
   useEffect(() => {
     const controller = new AbortController();
     const fetchData = async () => {
+      if (!user?.address) {
+        setInvoices([]);
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
-
-        // Load local invoices
-        const localSaved = localStorage.getItem('obscural_local_invoices');
-        const localInvoices = localSaved ? JSON.parse(localSaved) : [];
-
-        // Load API invoices with a 5-second timeout to prevent infinite loading
-        let apiInvoices = [];
-        if (user?.address) {
-          try {
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('API timeout')), 5000)
-            );
-            const apiPromise = api.invoiceApi.list({ userId: user.address });
-            const res = await Promise.race([apiPromise, timeoutPromise]);
-            apiInvoices = res.data || [];
-          } catch (err) {
-            console.warn('Analytics: API unavailable or timed out, using local data only.', err.message);
-          }
-        }
-
-        // Merge & deduplicate
-        const seenIds = new Set(localInvoices.map(inv => inv.id));
-        const merged = [...localInvoices];
-        apiInvoices.forEach(inv => {
-          if (!seenIds.has(inv.id)) merged.push(inv);
-        });
-        merged.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
-
-        setInvoices(merged);
+        const res = await api.invoiceApi.list({ userId: user.address });
+        const list = res.data || [];
+        list.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
+        setInvoices(list);
       } catch (err) {
-        console.error('Failed to load analytics data', err);
+        console.error('Failed to load analytics data from Supabase', err);
       } finally {
         setLoading(false);
       }
@@ -446,7 +426,7 @@ export default function Analytics() {
               ) : (
                 filteredInvoices.map((inv) => {
                   const displayId = inv.id ? (inv.id.length > 12 ? `${inv.id.slice(0, 8)}...` : inv.id) : 'INV-001';
-                  const recipient = inv.recipient_id || inv.to_name || '0x71C8...8357';
+                  const recipient = inv.recipient_id || inv.to_name || '—';
                   const formattedRecipient = recipient.length > 14 ? `${recipient.slice(0, 6)}...${recipient.slice(-4)}` : recipient;
                   const dateStr = inv.created_at ? new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : (locale === 'vi' ? 'Hôm nay' : 'Today');
                   const dueStr = inv.due_date ? new Date(inv.due_date).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : '—';

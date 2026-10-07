@@ -5,30 +5,6 @@ import useI18nStore from '../store/i18nStore';
 import api, { contactsApi, profilesApi } from '../services/api';
 import '../styles/Contact.css';
 
-const DEFAULT_DEMO_CONTACTS = [
-  {
-    id: 'demo-1',
-    name: 'Satoshi Nakamoto',
-    email: 'satoshi@nakamoto.org',
-    address: 'Block #0 Genesis St, Cypherpunk City, Metaverse',
-    homeAddress: 'Block #0 Genesis St, Cypherpunk City, Metaverse',
-  },
-  {
-    id: 'demo-2',
-    name: 'Vitalik Buterin',
-    email: 'vitalik@ethereum.org',
-    address: 'Zug Crypto Valley, Switzerland',
-    homeAddress: 'Zug Crypto Valley, Switzerland',
-  },
-  {
-    id: 'demo-3',
-    name: 'Rialo Core Labs',
-    email: 'team@rialo.network',
-    address: '742 Evergreen Terrace, Silicon Valley, CA 94025',
-    homeAddress: '742 Evergreen Terrace, Silicon Valley, CA 94025',
-  },
-];
-
 export default function Contact() {
   const { user } = useAuthStore();
   const { t, locale } = useI18nStore();
@@ -38,33 +14,14 @@ export default function Contact() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Initialize contacts from localStorage immediately
-  const [contacts, setContacts] = useState(() => {
-    try {
-      const saved = localStorage.getItem('obscural_contacts');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error('Error loading local contacts:', e);
-    }
-    // Default seed
-    localStorage.setItem('obscural_contacts', JSON.stringify(DEFAULT_DEMO_CONTACTS));
-    return DEFAULT_DEMO_CONTACTS;
-  });
-
-  // User profile state stored in localStorage
-  const [profile, setProfile] = useState(() => {
-    const saved = localStorage.getItem('obscural_profile');
-    return saved
-      ? JSON.parse(saved)
-      : {
-          name: user?.name || (user?.address ? `${user.address.slice(0, 8)}...${user.address.slice(-4)}` : '0xfd32...C101'),
-          email: user?.email || 'user@obscural.xyz',
-          location: '100 Financial Way, Manhattan, New York, NY 10005',
-          avatarUrl: '',
-        };
+  // Initialize contacts and profile state (fetched exclusively from Supabase)
+  const [contacts, setContacts] = useState([]);
+  const [profile, setProfile] = useState({
+    name: user?.name || (user?.email ? user.email.split('@')[0] : ''),
+    email: user?.email || '',
+    location: '',
+    avatarUrl: '',
+    company: '',
   });
 
   // Edit profile form state
@@ -78,49 +35,60 @@ export default function Contact() {
     homeAddress: '',
   });
 
-  // Sync profile to localStorage + backend
-  useEffect(() => {
-    localStorage.setItem('obscural_profile', JSON.stringify(profile));
-  }, [profile]);
-
-  // Load contacts from backend and merge with localStorage (offline-first)
+  // Load profile and contacts directly from Supabase for this user account
   useEffect(() => {
     if (!user?.address) return;
-    const loadAndSync = async () => {
-      try {
-        const localSaved = localStorage.getItem('obscural_contacts');
-        const currentList = localSaved ? JSON.parse(localSaved) : [];
-        const seen = new Set(currentList.map((c) => (c.email || c.name || '').toLowerCase()).filter(Boolean));
+    let isMounted = true;
 
-        // 1. Fetch contacts from backend
-        let backendContacts = [];
+    const loadUserData = async () => {
+      try {
+        // 1. Fetch user profile from Supabase
         try {
-          const backendRes = await contactsApi.list(user.address);
-          backendContacts = (backendRes.data || []).map((c) => ({
-            id: c.id,
-            name: c.name || '',
-            email: c.email || '',
-            walletAddress: c.wallet_address || '',
-            address: c.home_address || '',
-            homeAddress: c.home_address || '',
-            company: c.company || '',
-            notes: c.notes || '',
-            avatarUrl: c.avatar_url || '',
-          }));
-        } catch {
-          // Backend unavailable — continue with localStorage
+          const profileRes = await profilesApi.get(user.address);
+          if (isMounted && profileRes.exists && profileRes.data) {
+            const bp = profileRes.data;
+            const updated = {
+              name: bp.name || user?.name || (user?.email ? user.email.split('@')[0] : ''),
+              email: bp.email || user?.email || '',
+              location: bp.location || '',
+              avatarUrl: bp.avatar_url || '',
+              company: bp.company || '',
+            };
+            setProfile(updated);
+            setEditForm(updated);
+          }
+        } catch (e) {
+          console.warn('Failed to fetch profile from Supabase:', e);
         }
 
-        // 2. Merge backend contacts with local (dedupe by name/email)
-        backendContacts.forEach((bc) => {
-          const key = (bc.email || bc.name || '').toLowerCase();
-          if (key && !seen.has(key)) {
-            seen.add(key);
-            currentList.push(bc);
-          }
-        });
+        // 2. Fetch contacts from Supabase
+        const currentList = [];
+        const seen = new Set();
+        try {
+          const backendRes = await contactsApi.list(user.address);
+          const raw = backendRes.data || [];
+          raw.forEach((c) => {
+            const key = (c.email || c.name || c.wallet_address || '').toLowerCase();
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              currentList.push({
+                id: c.id,
+                name: c.name || '',
+                email: c.email || '',
+                walletAddress: c.wallet_address || '',
+                address: c.home_address || c.wallet_address || '',
+                homeAddress: c.home_address || '',
+                company: c.company || '',
+                notes: c.notes || '',
+                avatarUrl: c.avatar_url || '',
+              });
+            }
+          });
+        } catch (e) {
+          console.warn('Failed to fetch contacts from Supabase:', e);
+        }
 
-        // 3. Extract contacts from invoice history
+        // 3. Extract counterparties from invoice history on Supabase
         try {
           const res = await api.invoiceApi.list({ userId: user.address });
           (res.data || []).forEach((inv) => {
@@ -130,52 +98,31 @@ export default function Contact() {
               seen.add(otherParty.toLowerCase());
               const otherName = (isRecipient ? inv.from?.name : inv.to?.name) || otherParty.slice(0, 8);
               currentList.push({
-                id: `api-${otherParty}`,
+                id: `inv-${otherParty}`,
                 name: otherName,
                 email: (isRecipient ? inv.from?.email : inv.to?.email) || '',
                 address: (isRecipient ? inv.from?.address : inv.to?.address) || '',
                 homeAddress: (isRecipient ? inv.from?.address : inv.to?.address) || '',
+                walletAddress: otherParty,
               });
             }
           });
-        } catch {
-          // Invoice API unavailable
+        } catch (e) {
+          console.warn('Failed to fetch counterparties from invoices:', e);
         }
 
-        setContacts(currentList);
-        localStorage.setItem('obscural_contacts', JSON.stringify(currentList));
-
-        // 4. Sync local-only contacts to backend (fire-and-forget)
-        const localOnlyContacts = currentList.filter((c) => !c.id?.match?.(/^[0-9a-f-]{36}$/i));
-        if (localOnlyContacts.length > 0) {
-          contactsApi.sync(user.address, localOnlyContacts).catch(() => {});
-        }
-
-        // 5. Load profile from backend
-        try {
-          const profileRes = await profilesApi.get(user.address);
-          if (profileRes.exists && profileRes.data) {
-            const bp = profileRes.data;
-            setProfile((prev) => {
-              const merged = {
-                name: bp.name || prev.name,
-                email: bp.email || prev.email,
-                location: bp.location || prev.location,
-                avatarUrl: bp.avatar_url || prev.avatarUrl,
-                company: bp.company || '',
-              };
-              localStorage.setItem('obscural_profile', JSON.stringify(merged));
-              return merged;
-            });
-          }
-        } catch {
-          // Profile API unavailable
+        if (isMounted) {
+          setContacts(currentList);
         }
       } catch (err) {
-        console.error('Failed to sync contacts:', err);
+        console.error('Failed to load user data from Supabase:', err);
       }
     };
-    loadAndSync();
+
+    loadUserData();
+    return () => {
+      isMounted = false;
+    };
   }, [user?.address]);
 
   const shortAddr = user?.address
@@ -195,18 +142,25 @@ export default function Contact() {
     setShowEditProfile(true);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     setProfile(editForm);
     setShowEditProfile(false);
-    toast.success('Profile updated successfully');
-    // Sync profile to backend
-    if (user?.address) {
-      profilesApi.save(user.address, {
+    if (!user?.address) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+    try {
+      await profilesApi.save(user.address, {
         name: editForm.name,
         email: editForm.email,
         location: editForm.location,
         avatarUrl: editForm.avatarUrl,
-      }).catch(() => {});
+        company: editForm.company || '',
+      });
+      toast.success('Profile updated successfully');
+    } catch (err) {
+      console.error('Failed to save profile to Supabase:', err);
+      toast.error('Failed to save profile');
     }
   };
 
@@ -232,57 +186,59 @@ export default function Contact() {
       toast.error('Please enter contact name');
       return;
     }
+    if (!user?.address) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
 
-    const contactToSave = {
-      id: `contact-${Date.now()}`,
-      name: trimmedName,
-      email: newContact.email.trim(),
-      walletAddress: newContact.walletAddress.trim(),
-      address: newContact.homeAddress.trim() || newContact.walletAddress.trim(),
-      homeAddress: newContact.homeAddress.trim(),
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const res = await contactsApi.create({
+        userId: user.address,
+        name: trimmedName,
+        email: newContact.email.trim(),
+        walletAddress: newContact.walletAddress.trim(),
+        homeAddress: newContact.homeAddress.trim(),
+      });
 
-    const updated = [contactToSave, ...contacts];
-    setContacts(updated);
-    localStorage.setItem('obscural_contacts', JSON.stringify(updated));
+      const savedContact = res.data || {
+        id: `contact-${Date.now()}`,
+        name: trimmedName,
+        email: newContact.email.trim(),
+        wallet_address: newContact.walletAddress.trim(),
+        home_address: newContact.homeAddress.trim(),
+      };
 
-    setNewContact({ name: '', email: '', walletAddress: '', homeAddress: '' });
-    setShowAddForm(false);
-    toast.success(`Contact "${trimmedName}" saved successfully!`);
+      const newEntry = {
+        id: savedContact.id,
+        name: savedContact.name || trimmedName,
+        email: savedContact.email || newContact.email.trim(),
+        walletAddress: savedContact.wallet_address || newContact.walletAddress.trim(),
+        homeAddress: savedContact.home_address || newContact.homeAddress.trim(),
+        address: savedContact.home_address || newContact.homeAddress.trim() || savedContact.wallet_address || '',
+        company: savedContact.company || '',
+        notes: savedContact.notes || '',
+        avatarUrl: savedContact.avatar_url || '',
+      };
 
-    // Sync to backend
-    if (user?.address) {
-      try {
-        const res = await contactsApi.create({
-          userId: user.address,
-          name: trimmedName,
-          email: newContact.email.trim(),
-          walletAddress: newContact.walletAddress.trim(),
-          homeAddress: newContact.homeAddress.trim(),
-        });
-        // Update local ID with backend UUID
-        if (res.data?.id) {
-          const withBackendId = updated.map((c) =>
-            c.id === contactToSave.id ? { ...c, id: res.data.id } : c
-          );
-          setContacts(withBackendId);
-          localStorage.setItem('obscural_contacts', JSON.stringify(withBackendId));
-        }
-      } catch {
-        // Backend unavailable — contact saved locally
-      }
+      setContacts((prev) => [newEntry, ...prev]);
+      setNewContact({ name: '', email: '', walletAddress: '', homeAddress: '' });
+      setShowAddForm(false);
+      toast.success(`Contact "${trimmedName}" saved successfully!`);
+    } catch (err) {
+      console.error('Failed to save contact to Supabase:', err);
+      toast.error('Failed to save contact');
     }
   };
 
-  const handleDeleteContact = (id, name) => {
-    const updated = contacts.filter((c) => c.id !== id);
-    setContacts(updated);
-    localStorage.setItem('obscural_contacts', JSON.stringify(updated));
+  const handleDeleteContact = async (id, name) => {
+    setContacts((prev) => prev.filter((c) => c.id !== id));
     toast.info(`Deleted contact ${name || ''}`);
-    // Sync deletion to backend (UUID-format IDs are from backend)
-    if (id?.match?.(/^[0-9a-f-]{36}$/i)) {
-      contactsApi.delete(id).catch(() => {});
+    if (user?.address && id && !id.startsWith('inv-')) {
+      try {
+        await contactsApi.delete(id);
+      } catch (err) {
+        console.error('Failed to delete contact from Supabase:', err);
+      }
     }
   };
 
@@ -354,10 +310,25 @@ export default function Contact() {
           <div className="contact-profile-row">
             <span className="contact-profile-label">EMAIL:</span>
             <div className="contact-profile-value-group">
-              <span className="contact-profile-value">{profile.email || (locale === 'vi' ? 'Chưa thiết lập' : 'Not set')}</span>
-              {profile.email && (
-                <button className="contact-copy-btn" onClick={() => handleCopy(profile.email, 'email')} title={locale === 'vi' ? 'Sao chép Email' : 'Copy Email'}>
-                  {copied === 'email' ? '✓' : '⧉'}
+              <span className="contact-profile-value">{user?.email || profile.email || (locale === 'vi' ? 'Chưa thiết lập' : 'Not set')}</span>
+              {(user?.email || profile.email) && (
+                <button
+                  type="button"
+                  className={`contact-copy-btn ${copied === 'email' ? 'copied' : ''}`}
+                  onClick={() => handleCopy(user?.email || profile.email, 'email')}
+                  title={locale === 'vi' ? 'Sao chép Email' : 'Copy Email'}
+                  aria-label="Copy Email"
+                >
+                  {copied === 'email' ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
                 </button>
               )}
             </div>
@@ -367,23 +338,56 @@ export default function Contact() {
             <span className="contact-profile-label">WALLET:</span>
             <div className="contact-profile-value-group">
               <span className="contact-profile-value">{shortAddr}</span>
-              <button className="contact-copy-btn" onClick={() => handleCopy(user?.address || '', 'address')} title={locale === 'vi' ? 'Sao chép Địa chỉ' : 'Copy Address'}>
-                {copied === 'address' ? '✓' : '⧉'}
-              </button>
-            </div>
-          </div>
-
-          <div className="contact-profile-row">
-            <span className="contact-profile-label">{locale === 'vi' ? 'ĐỊA CHỈ:' : 'ADDRESS:'}</span>
-            <div className="contact-profile-value-group">
-              <span className="contact-profile-value">{profile.location || (locale === 'vi' ? 'Chưa thiết lập' : 'Not set')}</span>
-              {profile.location && (
-                <button className="contact-copy-btn" onClick={() => handleCopy(profile.location, 'location')} title={locale === 'vi' ? 'Sao chép Địa chỉ' : 'Copy Address'}>
-                  {copied === 'location' ? '✓' : '⧉'}
+              {user?.address && (
+                <button
+                  type="button"
+                  className={`contact-copy-btn ${copied === 'address' ? 'copied' : ''}`}
+                  onClick={() => handleCopy(user.address, 'address')}
+                  title={locale === 'vi' ? 'Sao chép Địa chỉ ví' : 'Copy Wallet Address'}
+                  aria-label="Copy Wallet Address"
+                >
+                  {copied === 'address' ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
                 </button>
               )}
             </div>
           </div>
+
+          {/* Physical Address — only displayed if user has explicitly added one */}
+          {Boolean(profile.location && profile.location.trim()) && (
+            <div className="contact-profile-row">
+              <span className="contact-profile-label">{locale === 'vi' ? 'ĐỊA CHỈ:' : 'ADDRESS:'}</span>
+              <div className="contact-profile-value-group">
+                <span className="contact-profile-value">{profile.location}</span>
+                <button
+                  type="button"
+                  className={`contact-copy-btn ${copied === 'location' ? 'copied' : ''}`}
+                  onClick={() => handleCopy(profile.location, 'location')}
+                  title={locale === 'vi' ? 'Sao chép Địa chỉ' : 'Copy Address'}
+                  aria-label="Copy Address"
+                >
+                  {copied === 'location' ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -505,10 +509,10 @@ export default function Contact() {
               </div>
 
               <div className="contact-modal-field">
-                <label>Address (Street, City, Country)</label>
+                <label>{locale === 'vi' ? 'Địa chỉ (Đường, Thành phố, Quốc gia)' : 'Address (Street, City, Country)'}</label>
                 <input
                   type="text"
-                  placeholder="e.g. 100 Financial Way, Manhattan, New York, NY 10005"
+                  placeholder={locale === 'vi' ? 'VD: Số 123 Đường Nguyễn Huệ, TP.HCM' : 'e.g. 123 Tech Blvd, Suite 400, San Francisco, CA'}
                   value={editForm.location}
                   onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))}
                 />
@@ -597,111 +601,144 @@ export default function Contact() {
         </div>
       )}
 
-      {/* ── Recent Contacts ── */}
-      <div className="contact-section">
-        <h3 className="contact-section-title">{locale === 'vi' ? 'Liên hệ gần đây' : 'Recent Contacts'} ({recentContacts.length})</h3>
-        <div className="contact-list">
-          {recentContacts.length === 0 ? (
-            <div className="contact-empty">{locale === 'vi' ? 'Chưa có liên hệ nào' : 'No contacts yet'}</div>
-          ) : (
-            recentContacts.map((c) => (
-              <div key={c.id} className="contact-item">
-                <div className="contact-item-left">
-                  <div className="contact-item-avatar">
-                    {c.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="contact-item-info">
-                    <span className="contact-item-name">{c.name}</span>
-                    <span className="contact-item-email">{c.email || (locale === 'vi' ? 'Chưa có email' : 'No email')}</span>
-                    {(c.homeAddress || c.address) && (
-                      <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
-                        📍 {c.homeAddress || c.address}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {c.walletAddress && (
-                    <span className="contact-item-addr" title={c.walletAddress}>
-                      {c.walletAddress.slice(0, 6)}...{c.walletAddress.slice(-4)}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => handleDeleteContact(c.id, c.name)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#FF6B7A',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      padding: '4px',
-                      opacity: 0.7,
-                    }}
-                    title={locale === 'vi' ? 'Xóa liên hệ' : 'Delete Contact'}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
+      {/* ── Contacts List / Empty State ── */}
+      {contacts.length === 0 ? (
+        <div className="contact-empty-state">
+          <div className="contact-empty-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <h4 className="contact-empty-title">{locale === 'vi' ? 'Chưa có liên hệ nào' : 'No contacts yet'}</h4>
+          <p className="contact-empty-desc">
+            {locale === 'vi'
+              ? 'Thêm liên hệ đầu tiên để tự động điền địa chỉ khi tạo hóa đơn và thanh toán.'
+              : 'Add your first contact to automatically autofill addresses in invoices and settlements.'}
+          </p>
+          <button type="button" className="contact-empty-add-btn" onClick={() => setShowAddForm(true)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            {locale === 'vi' ? 'Thêm liên hệ mới' : 'Add New Contact'}
+          </button>
         </div>
-      </div>
-
-      {/* ── All Contacts ── */}
-      <div className="contact-section">
-        <h3 className="contact-section-title">{locale === 'vi' ? 'Tất cả liên hệ' : 'All Contacts'} ({allContacts.length})</h3>
-        <div className="contact-list">
-          {allContacts.length === 0 ? (
-            <div className="contact-empty">
-              {locale === 'vi'
-                ? `Không tìm thấy liên hệ nào khớp với "${search}"`
-                : `No contacts found matching "${search}"`}
+      ) : (
+        <>
+          {/* Recent Contacts (shown only when not searching) */}
+          {!search && recentContacts.length > 0 && (
+            <div className="contact-section">
+              <h3 className="contact-section-title">{locale === 'vi' ? 'Liên hệ gần đây' : 'Recent Contacts'} ({recentContacts.length})</h3>
+              <div className="contact-list">
+                {recentContacts.map((c) => (
+                  <div key={c.id} className="contact-item">
+                    <div className="contact-item-left">
+                      <div className="contact-item-avatar">
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="contact-item-info">
+                        <span className="contact-item-name">{c.name}</span>
+                        <span className="contact-item-email">{c.email || (locale === 'vi' ? 'Chưa có email' : 'No email')}</span>
+                        {(c.homeAddress || c.address) && (
+                          <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
+                            📍 {c.homeAddress || c.address}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {c.walletAddress && (
+                        <span className="contact-item-addr" title={c.walletAddress}>
+                          {c.walletAddress.slice(0, 6)}...{c.walletAddress.slice(-4)}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteContact(c.id, c.name)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#FF6B7A',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          padding: '4px',
+                          opacity: 0.7,
+                        }}
+                        title={locale === 'vi' ? 'Xóa liên hệ' : 'Delete Contact'}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          ) : (
-            allContacts.map((c) => (
-              <div key={`all-${c.id}`} className="contact-item">
-                <div className="contact-item-left">
-                  <div className="contact-item-avatar">
-                    {c.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="contact-item-info">
-                    <span className="contact-item-name">{c.name}</span>
-                    <span className="contact-item-email">{c.email || 'No email'}</span>
-                    {(c.homeAddress || c.address) && (
-                      <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
-                        📍 {c.homeAddress || c.address}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {c.walletAddress && (
-                    <span className="contact-item-addr" title={c.walletAddress}>
-                      {c.walletAddress.slice(0, 6)}...{c.walletAddress.slice(-4)}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => handleDeleteContact(c.id, c.name)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#FF6B7A',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      padding: '4px',
-                      opacity: 0.7,
-                    }}
-                    title="Delete Contact"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))
           )}
-        </div>
-      </div>
+
+          {/* All Contacts */}
+          <div className="contact-section">
+            <h3 className="contact-section-title">
+              {search
+                ? (locale === 'vi' ? `Kết quả tìm kiếm (${allContacts.length})` : `Search Results (${allContacts.length})`)
+                : (locale === 'vi' ? `Tất cả liên hệ (${allContacts.length})` : `All Contacts (${allContacts.length})`)}
+            </h3>
+            <div className="contact-list">
+              {allContacts.length === 0 ? (
+                <div className="contact-empty">
+                  {locale === 'vi'
+                    ? `Không tìm thấy liên hệ nào khớp với "${search}"`
+                    : `No contacts found matching "${search}"`}
+                </div>
+              ) : (
+                allContacts.map((c) => (
+                  <div key={`all-${c.id}`} className="contact-item">
+                    <div className="contact-item-left">
+                      <div className="contact-item-avatar">
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="contact-item-info">
+                        <span className="contact-item-name">{c.name}</span>
+                        <span className="contact-item-email">{c.email || 'No email'}</span>
+                        {(c.homeAddress || c.address) && (
+                          <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
+                            📍 {c.homeAddress || c.address}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {c.walletAddress && (
+                        <span className="contact-item-addr" title={c.walletAddress}>
+                          {c.walletAddress.slice(0, 6)}...{c.walletAddress.slice(-4)}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteContact(c.id, c.name)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#FF6B7A',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          padding: '4px',
+                          opacity: 0.7,
+                        }}
+                        title="Delete Contact"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

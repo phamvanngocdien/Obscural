@@ -1,12 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { usePrivy, useWallets, useLogin } from '@privy-io/react-auth';
 
 const SEPOLIA_CHAIN_ID = 11155111;
 const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
 
 export default function useWallet() {
-  const { login, logout, authenticated, ready, user: privyUser, createWallet } = usePrivy();
+  const { logout, authenticated, ready, user: privyUser, createWallet } = usePrivy();
+  const { login } = useLogin({
+    onComplete: (user, isNewUser, wasAlreadyAuthenticated, loginMethod, loginAccount) => {
+      console.log('Privy login success:', { loginMethod, user, loginAccount });
+    },
+    onError: (err) => {
+      console.error('Privy login error:', err);
+    },
+  });
   const { wallets } = useWallets();
 
   const [balance, setBalance] = useState('0');
@@ -20,16 +28,29 @@ export default function useWallet() {
   const externalWallet = wallets.find(w => w.walletClientType !== 'privy') || null;
   const activeWallet = embeddedWallet || externalWallet || wallets[0] || null;
 
-  // Wallet address — always use on-chain address, never email
-  const walletAddress = activeWallet?.address
-    || privyUser?.wallet?.address
+  // Extract identity from email or Google OAuth across privyUser and linkedAccounts
+  const googleAccount = privyUser?.google
+    || privyUser?.linkedAccounts?.find(a => a.type === 'google_oauth' || a.type === 'google')
+    || null;
+  const emailAccount = privyUser?.email
+    || privyUser?.linkedAccounts?.find(a => a.type === 'email')
+    || null;
+  const walletAccountObj = privyUser?.wallet
+    || privyUser?.linkedAccounts?.find(a => a.type === 'wallet')
     || null;
 
-  // Email identity
-  const emailAddress = privyUser?.email?.address || null;
-  const googleEmail = privyUser?.google?.email || null;
+  // Wallet address — always use on-chain address, fallback to linked wallet
+  const walletAddress = activeWallet?.address
+    || walletAccountObj?.address
+    || null;
+
+  // Email and name identity
+  const emailAddress = emailAccount?.address || emailAccount?.email || null;
+  const googleEmail = googleAccount?.email || null;
   const userEmail = emailAddress || googleEmail || null;
-  const userName = privyUser?.google?.name || (userEmail ? userEmail.split('@')[0] : null);
+  const userName = googleAccount?.name
+    || privyUser?.name
+    || (userEmail ? userEmail.split('@')[0] : null);
 
   // The primary account is always the wallet address (for on-chain interactions)
   const account = walletAddress;

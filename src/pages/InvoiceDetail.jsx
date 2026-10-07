@@ -22,18 +22,6 @@ export default function InvoiceDetail() {
     const fetchInvoice = async () => {
       try {
         setLoading(true);
-        // First check local storage
-        const localSaved = localStorage.getItem('obscural_local_invoices');
-        const localInvoices = localSaved ? JSON.parse(localSaved) : [];
-        const found = localInvoices.find((item) => item.id === id);
-
-        if (found) {
-          setInv(found);
-          setLoading(false);
-          return;
-        }
-
-        // Otherwise fetch from API
         const res = await api.invoiceApi.get(id);
         if (res.data) {
           setInv(res.data);
@@ -41,7 +29,7 @@ export default function InvoiceDetail() {
           setError('Invoice not found');
         }
       } catch (err) {
-        console.error('Failed to load invoice', err);
+        console.error('Failed to load invoice from Supabase', err);
         setError('Invoice not found or failed to load');
       } finally {
         setLoading(false);
@@ -56,26 +44,12 @@ export default function InvoiceDetail() {
     setProcessingAction(true);
     try {
       const updated = { ...inv, status: newStatus };
-
-      // Update local storage
-      const localSaved = localStorage.getItem('obscural_local_invoices');
-      if (localSaved) {
-        const localInvoices = JSON.parse(localSaved);
-        const nextList = localInvoices.map((item) => (item.id === inv.id ? updated : item));
-        localStorage.setItem('obscural_local_invoices', JSON.stringify(nextList));
-      }
-
-      // Try update backend
-      try {
-        await api.invoiceApi.update(inv.id, { status: newStatus }).catch(() => {});
-      } catch {
-        // Ignore API failure
-      }
-
+      await api.invoiceApi.update(inv.id, { status: newStatus });
       setInv(updated);
-      toast.success(`Invoice marked as ${newStatus}!`);
+      toast.success(t('detail.statusUpdated', 'Invoice status updated!'));
     } catch (err) {
-      toast.error('Failed to update invoice: ' + err.message);
+      console.error('Failed to update invoice status:', err);
+      toast.error('Failed to update invoice status on server');
     } finally {
       setProcessingAction(false);
     }
@@ -291,7 +265,7 @@ export default function InvoiceDetail() {
     toData.walletAddress ||
     (inv.recipient_id && inv.recipient_id.startsWith('0x') ? inv.recipient_id : null) ||
     (toData.address && toData.address.startsWith('0x') ? toData.address : null) ||
-    '0x71C8A18F83441B3BfA10cEaFEeD0929285098357';
+    '';
 
   return (
     <div className="id-page">

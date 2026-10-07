@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
-import api from '../services/api';
+import api, { contactsApi, profilesApi } from '../services/api';
 import { toast } from '../components/common';
 import '../styles/CreateInvoice.css';
 
@@ -31,25 +31,37 @@ export default function CreateInvoice() {
   );
   const [recentContacts, setRecentContacts] = useState([]);
 
-  // Load profile from localStorage + user wallet info
+  // Load profile from Supabase for this user account
   useEffect(() => {
-    const saved = localStorage.getItem('obscural_profile');
-    if (saved) {
-      const p = JSON.parse(saved);
+    if (!user) return;
+    const loadProfile = async () => {
+      let defaultName = user.name || (user.email ? user.email.split('@')[0] : '');
+      let defaultEmail = user.email || '';
+      let defaultAddress = '';
+      let defaultWallet = user.address || '';
+
+      if (user.address) {
+        try {
+          const res = await profilesApi.get(user.address);
+          if (res.exists && res.data) {
+            const p = res.data;
+            defaultName = p.name || defaultName;
+            defaultEmail = p.email || defaultEmail;
+            defaultAddress = p.location || '';
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       setFrom({
-        name: p.name || user?.name || '',
-        email: p.email || '',
-        address: p.location || '',
-        walletAddress: user?.address || '',
+        name: defaultName,
+        email: defaultEmail,
+        address: defaultAddress,
+        walletAddress: defaultWallet,
       });
-    } else if (user) {
-      setFrom({
-        name: user.name || '',
-        email: '',
-        address: '',
-        walletAddress: user.address || '',
-      });
-    }
+    };
+    loadProfile();
   }, [user]);
 
   // Load AI Assistant draft if available
@@ -101,46 +113,60 @@ export default function CreateInvoice() {
     }
   }, []);
 
-  // Load recent contacts from localStorage & invoices
+  // Load recent contacts and counterparties directly from Supabase
   useEffect(() => {
-    const localSaved = localStorage.getItem('obscural_contacts');
-    if (localSaved) {
-      try {
-        const parsed = JSON.parse(localSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setRecentContacts(parsed.slice(0, 4));
-          return;
-        }
-      } catch {
-        // fallback
-      }
-    }
-
     if (!user?.address) return;
-    const loadFromApi = async () => {
+    const loadFromSupabase = async () => {
       try {
-        const res = await api.invoiceApi.list({ userId: user.address });
         const seen = new Set();
         const extracted = [];
-        (res.data || []).forEach((inv) => {
-          const isRecipient = inv.recipient_id?.toLowerCase() === user?.address?.toLowerCase();
-          const otherParty = isRecipient ? inv.creator_id : inv.recipient_id;
-          if (otherParty && !seen.has(otherParty.toLowerCase())) {
-            seen.add(otherParty.toLowerCase());
-            extracted.push({
-              name: isRecipient ? (inv.from?.name || otherParty.slice(0, 8)) : (inv.to?.name || otherParty.slice(0, 8)),
-              email: (isRecipient ? inv.from?.email : inv.to?.email) || '',
-              address: (isRecipient ? inv.from?.address : inv.to?.address) || '',
-              walletAddress: otherParty,
-            });
-          }
-        });
+
+        // 1. Fetch saved contacts from Supabase
+        try {
+          const res = await contactsApi.list(user.address);
+          (res.data || []).forEach((c) => {
+            const key = (c.email || c.name || c.wallet_address || '').toLowerCase();
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              extracted.push({
+                id: c.id,
+                name: c.name || '',
+                email: c.email || '',
+                address: c.home_address || '',
+                walletAddress: c.wallet_address || '',
+              });
+            }
+          });
+        } catch {
+          // ignore
+        }
+
+        // 2. Fetch past invoice partners from Supabase
+        try {
+          const res = await api.invoiceApi.list({ userId: user.address });
+          (res.data || []).forEach((inv) => {
+            const isRecipient = inv.recipient_id?.toLowerCase() === user?.address?.toLowerCase();
+            const otherParty = isRecipient ? inv.creator_id : inv.recipient_id;
+            if (otherParty && !seen.has(otherParty.toLowerCase())) {
+              seen.add(otherParty.toLowerCase());
+              extracted.push({
+                name: isRecipient ? (inv.from?.name || otherParty.slice(0, 8)) : (inv.to?.name || otherParty.slice(0, 8)),
+                email: (isRecipient ? inv.from?.email : inv.to?.email) || '',
+                address: (isRecipient ? inv.from?.address : inv.to?.address) || '',
+                walletAddress: otherParty,
+              });
+            }
+          });
+        } catch {
+          // ignore
+        }
+
         setRecentContacts(extracted.slice(0, 4));
       } catch (err) {
-        console.error('Failed to load recent contacts', err);
+        console.error('Failed to load recent contacts from Supabase', err);
       }
     };
-    loadFromApi();
+    loadFromSupabase();
   }, [user?.address]);
 
   const updateItem = (index, key, value) => {
@@ -228,32 +254,21 @@ export default function CreateInvoice() {
       note,
     };
 
-    // Save to localStorage
-    const saved = localStorage.getItem('obscural_local_invoices');
-    const invoices = saved ? JSON.parse(saved) : [];
-    invoices.unshift(invoice);
-    localStorage.setItem('obscural_local_invoices', JSON.stringify(invoices));
-
-    // Also auto-save recipient to contacts if not existing
-    const localContactsSaved = localStorage.getItem('obscural_contacts');
-    const existingContacts = localContactsSaved ? JSON.parse(localContactsSaved) : [];
-    const contactExists = existingContacts.some((c) => c.name.toLowerCase() === to.name.toLowerCase());
-    if (!contactExists && to.name) {
-      existingContacts.unshift({
-        id: `contact-${Date.now()}`,
+    // Auto-save recipient to Supabase contacts if user has wallet
+    if (user?.address && to.name) {
+      contactsApi.create({
+        userId: user.address,
         name: to.name,
-        email: to.email,
-        walletAddress: to.walletAddress,
-        homeAddress: to.address,
-        address: to.address,
-      });
-      localStorage.setItem('obscural_contacts', JSON.stringify(existingContacts));
+        email: to.email || '',
+        walletAddress: to.walletAddress || '',
+        homeAddress: to.address || '',
+      }).catch(() => {});
     }
 
-    // Attempt backend sync
+    // Save invoice to Supabase backend
     try {
       if (user?.address) {
-        api.invoiceApi.create({
+        await api.invoiceApi.create({
           creator_id: user.address,
           recipient_id: invoice.recipient_id,
           amount: invoice.total,
@@ -262,10 +277,10 @@ export default function CreateInvoice() {
           status: 'pending',
           due_date: invoice.dueDate || null,
           metadata: { from: invoice.from, to: invoice.to, items, taxPercent, note },
-        }).catch(() => {});
+        });
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('Backend invoice save notice:', err);
     }
 
     toast.success('Invoice created successfully!');
@@ -295,7 +310,7 @@ export default function CreateInvoice() {
             <input
               className="ci-input"
               type="text"
-              placeholder={locale === 'vi' ? 'VD: Công ty TNHH Rialo Studio' : 'e.g. Satoshi Design Studio'}
+              placeholder={locale === 'vi' ? 'VD: Công ty TNHH Acme Corp' : 'e.g. Acme Studio'}
               value={from.name}
               onChange={(e) => setFrom((p) => ({ ...p, name: e.target.value }))}
             />
@@ -311,7 +326,7 @@ export default function CreateInvoice() {
             <input
               className="ci-input"
               type="text"
-              placeholder={locale === 'vi' ? 'VD: Tòa nhà Landmark, TP.HCM' : 'e.g. 100 Financial Way, Manhattan, New York, NY 10005'}
+              placeholder={locale === 'vi' ? 'VD: Tòa nhà Landmark, TP.HCM' : 'e.g. 123 Tech Blvd, Suite 400, San Francisco, CA'}
               value={from.address}
               onChange={(e) => setFrom((p) => ({ ...p, address: e.target.value }))}
             />

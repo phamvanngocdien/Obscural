@@ -16,40 +16,19 @@ export default function InvoiceList() {
 
   useEffect(() => {
     const fetchInvoices = async () => {
+      if (!user?.address) {
+        setInvoices([]);
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
-        // Load from localStorage
-        const localSaved = localStorage.getItem('obscural_local_invoices');
-        const localInvoices = localSaved ? JSON.parse(localSaved) : [];
-
-        // Load from API (5s timeout)
-        let apiInvoices = [];
-        if (user?.address) {
-          try {
-            const res = await Promise.race([
-              api.invoiceApi.list({ userId: user.address }),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
-            ]);
-            apiInvoices = res.data || [];
-          } catch (err) {
-            console.warn('InvoiceList: API unavailable, using local data.', err.message);
-          }
-        }
-
-        // Merge: local first, then API (deduplicate by id)
-        const seenIds = new Set(localInvoices.map((inv) => inv.id));
-        const merged = [...localInvoices];
-        apiInvoices.forEach((inv) => {
-          if (!seenIds.has(inv.id)) {
-            merged.push(inv);
-          }
-        });
-
-        // Sort by date, newest first
-        merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        setInvoices(merged);
+        const res = await api.invoiceApi.list({ userId: user.address });
+        const list = res.data || [];
+        list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setInvoices(list);
       } catch (err) {
-        console.error('Failed to load invoices', err);
+        console.error('Failed to load invoices from Supabase', err);
       } finally {
         setLoading(false);
       }

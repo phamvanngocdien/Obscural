@@ -52,7 +52,7 @@ function AppContent() {
       return;
     }
 
-    // Wait for wallet address (embedded wallet may take a moment to create after email login)
+    // Sync Privy auth state → auth store (supports email, Google, and wallet login)
     if (wallet.isConnected && wallet.account) {
       if (!user || user.address !== wallet.account) {
         localStorage.setItem('obscural_last_active', Date.now().toString());
@@ -66,11 +66,12 @@ function AppContent() {
       } else if (user.balance !== wallet.balance) {
         updateBalance(wallet.balance);
       }
-    } else if (wallet.isConnected && !wallet.account && wallet.userEmail) {
-      // Email login but wallet not yet created — use email temporarily
+    } else if (wallet.isConnected && !wallet.account) {
+      // Google or Email authenticated, but embedded wallet address is still being provisioned
+      const tempId = wallet.userEmail || wallet.userName || 'privy_user';
       if (!user) {
         onConnect(
-          wallet.userEmail,
+          tempId,
           '0',
           null,
           { name: wallet.userName, email: wallet.userEmail }
@@ -185,6 +186,9 @@ export default function App() {
           },
           embeddedWallets: {
             createOnLogin: 'users-without-wallets',
+            ethereum: {
+              createOnLogin: 'users-without-wallets',
+            },
           },
         }}
       >

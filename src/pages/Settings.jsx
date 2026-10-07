@@ -13,34 +13,27 @@ export default function Settings() {
   const wallet = useWallet();
   const outletCtx = useOutletContext() || {};
 
-  // Profile state
-  const [profile, setProfile] = useState(() => {
-    const saved = localStorage.getItem('obscural_profile');
-    return saved ? JSON.parse(saved) : {
-      name: user?.name || '',
-      email: '',
-      location: '',
-      company: '',
-    };
+  // Profile state (fetched directly from Supabase)
+  const [profile, setProfile] = useState({
+    name: user?.name || (user?.email ? user.email.split('@')[0] : ''),
+    email: user?.email || '',
+    location: '',
+    company: '',
   });
   const [profileDirty, setProfileDirty] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // Load profile from backend on mount
+  // Load profile from Supabase on mount
   useEffect(() => {
     if (!user?.address) return;
     profilesApi.get(user.address).then((res) => {
       if (res.exists && res.data) {
         const bp = res.data;
-        setProfile((prev) => {
-          const merged = {
-            name: bp.name || prev.name,
-            email: bp.email || prev.email,
-            location: bp.location || prev.location,
-            company: bp.company || prev.company || '',
-          };
-          localStorage.setItem('obscural_profile', JSON.stringify(merged));
-          return merged;
+        setProfile({
+          name: bp.name || user?.name || (user?.email ? user.email.split('@')[0] : ''),
+          email: bp.email || user?.email || '',
+          location: bp.location || '',
+          company: bp.company || '',
         });
       }
     }).catch(() => {});
@@ -54,15 +47,13 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
-      localStorage.setItem('obscural_profile', JSON.stringify(profile));
       if (user?.address) {
         await profilesApi.save(user.address, profile);
       }
       setProfileDirty(false);
-      toast.success(locale === 'vi' ? 'Đã lưu hồ sơ!' : 'Profile saved!');
+      toast.success(locale === 'vi' ? 'Đã lưu hồ sơ thành công!' : 'Profile saved successfully!');
     } catch {
-      toast.error(locale === 'vi' ? 'Lưu thất bại, đã lưu cục bộ.' : 'Failed to save profile to server, saved locally.');
-      setProfileDirty(false);
+      toast.error(locale === 'vi' ? 'Lưu hồ sơ thất bại.' : 'Failed to save profile to server.');
     } finally {
       setSavingProfile(false);
     }
@@ -366,28 +357,6 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* Danger Zone */}
-      <section className="settings-section settings-danger-zone">
-        <h2 className="settings-section-title" style={{ color: 'var(--color-error)' }}>{t('settings.dangerZone')}</h2>
-        <div className="settings-danger-row">
-          <div>
-            <span className="settings-danger-label">{t('settings.clearDataLabel')}</span>
-            <span className="settings-danger-desc">{t('settings.clearDataDesc')}</span>
-          </div>
-          <button
-            className="settings-btn-danger"
-            onClick={() => {
-              if (window.confirm(t('settings.clearDataConfirm'))) {
-                localStorage.clear();
-                toast.success(locale === 'vi' ? 'Đã xóa dữ liệu' : 'Local data cleared');
-                window.location.reload();
-              }
-            }}
-          >
-            {t('settings.clearData')}
-          </button>
-        </div>
-      </section>
     </div>
   );
 }
