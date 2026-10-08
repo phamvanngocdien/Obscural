@@ -67,11 +67,11 @@ export default function InvoiceDetail() {
         : inv.due_date
           ? new Date(inv.due_date).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' })
           : 'Immediate';
-      const pdfFrom = inv.from || { name: inv.creator_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.creator_id };
-      const pdfTo = inv.to || { name: inv.recipient_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.recipient_id };
+      const pdfFrom = inv.from_data || inv.from || { name: inv.creator_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.creator_id };
+      const pdfTo = inv.to_data || inv.to || { name: inv.recipient_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.recipient_id };
       const pdfItems = inv.items || [{ description: inv.title || 'Invoice Payment', quantity: 1, price: parseFloat(inv.amount) || 0 }];
       const pdfSubtotal = inv.subtotal || pdfItems.reduce((s, it) => s + (parseFloat(it.price) || 0) * (parseInt(it.quantity) || 0), 0);
-      const pdfTaxAmount = inv.taxAmount || 0;
+      const pdfTaxAmount = inv.tax_amount || inv.taxAmount || 0;
       const pdfTotal = inv.total || parseFloat(inv.amount) || pdfSubtotal + pdfTaxAmount;
       const pdfNote = inv.note || '';
 
@@ -251,20 +251,20 @@ export default function InvoiceDetail() {
       ? new Date(inv.due_date).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'long', day: '2-digit', year: 'numeric' })
       : (locale === 'vi' ? 'Ngay lập tức' : 'Immediate');
 
-  const fromData = inv.from || { name: inv.creator_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.creator_id };
-  const toData = inv.to || { name: inv.recipient_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.recipient_id };
+  const fromData = inv.from_data || inv.from || { name: inv.creator_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.creator_id };
+  const toData = inv.to_data || inv.to || { name: inv.recipient_id?.slice(0, 8) || '', email: '', address: '', walletAddress: inv.recipient_id };
   const itemsList = inv.items || [{ description: inv.title || 'Invoice Payment', quantity: 1, price: parseFloat(inv.amount) || 0 }];
   const subtotal = inv.subtotal || itemsList.reduce((s, it) => s + (parseFloat(it.price) || 0) * (parseInt(it.quantity) || 0), 0);
-  const taxAmount = inv.taxAmount || 0;
+  const taxAmount = inv.tax_amount || inv.taxAmount || 0;
   const total = inv.total || parseFloat(inv.amount) || subtotal + taxAmount;
   const noteText = inv.note || '';
   const currency = inv.currency || 'USD';
 
-  // Valid on-chain payout wallet address for QR and payments
+  // Valid on-chain payout wallet address for QR and payments (pays the creator/seller)
   const payWallet =
+    fromData.walletAddress ||
+    (inv.creator_id && inv.creator_id.startsWith('0x') ? inv.creator_id : null) ||
     toData.walletAddress ||
-    (inv.recipient_id && inv.recipient_id.startsWith('0x') ? inv.recipient_id : null) ||
-    (toData.address && toData.address.startsWith('0x') ? toData.address : null) ||
     '';
 
   return (

@@ -90,20 +90,31 @@ export default function Contact() {
 
         // 3. Extract counterparties from invoice history on Supabase
         try {
-          const res = await api.invoiceApi.list({ userId: user.address });
+          const res = await api.invoiceApi.list({
+            userId: user.address || '',
+            email: user.email || '',
+          });
           (res.data || []).forEach((inv) => {
-            const isRecipient = inv.recipient_id?.toLowerCase() === user?.address?.toLowerCase();
-            const otherParty = isRecipient ? inv.creator_id : inv.recipient_id;
-            if (otherParty && !seen.has(otherParty.toLowerCase())) {
-              seen.add(otherParty.toLowerCase());
-              const otherName = (isRecipient ? inv.from?.name : inv.to?.name) || otherParty.slice(0, 8);
+            const userAddr = user?.address?.toLowerCase();
+            const userEmail = user?.email?.toLowerCase();
+            const isRecipient = Boolean(
+              (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+              (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+            );
+            const otherParty = isRecipient ? (inv.creator_id || inv.from_data?.walletAddress) : (inv.recipient_id || inv.to_data?.walletAddress);
+            const otherKey = (otherParty || (isRecipient ? inv.from_data?.email : inv.to_data?.email) || '').toLowerCase();
+            if (otherKey && !seen.has(otherKey)) {
+              seen.add(otherKey);
+              const toObj = inv.to_data || inv.to || {};
+              const fromObj = inv.from_data || inv.from || {};
+              const otherName = isRecipient ? (fromObj.name || (otherParty ? otherParty.slice(0, 8) : 'Partner')) : (toObj.name || (otherParty ? otherParty.slice(0, 8) : 'Client'));
               currentList.push({
-                id: `inv-${otherParty}`,
+                id: `inv-${otherKey}`,
                 name: otherName,
-                email: (isRecipient ? inv.from?.email : inv.to?.email) || '',
-                address: (isRecipient ? inv.from?.address : inv.to?.address) || '',
-                homeAddress: (isRecipient ? inv.from?.address : inv.to?.address) || '',
-                walletAddress: otherParty,
+                email: (isRecipient ? fromObj.email : toObj.email) || '',
+                address: (isRecipient ? fromObj.address : toObj.address) || '',
+                homeAddress: (isRecipient ? fromObj.address : toObj.address) || '',
+                walletAddress: otherParty || '',
               });
             }
           });

@@ -137,25 +137,30 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
       try {
         const list = [];
 
-        // 1. Fetch persistent notifications from backend
-        if (user?.address) {
-          try {
-            const backendRes = await notificationsApi.list(user.address);
-            (backendRes.data || []).forEach((n) => {
-              list.push({
-                id: n.id,
-                type: n.type || 'info',
-                icon: n.icon || '🔔',
-                title: n.title,
-                desc: n.description || '',
-                link: n.link || '/dashboard',
-                time: n.is_read ? (locale === 'vi' ? 'Đã xem' : 'Read') : new Date(n.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'short', day: 'numeric' }),
-                isRead: n.is_read,
-                fromBackend: true,
+        // 1. Fetch persistent notifications from backend for all user identifiers (wallet + email)
+        const userIdentifiers = [user?.address, user?.email].filter(Boolean);
+        if (userIdentifiers.length > 0) {
+          for (const uid of userIdentifiers) {
+            try {
+              const backendRes = await notificationsApi.list(uid);
+              (backendRes.data || []).forEach((n) => {
+                if (!list.some((existing) => existing.id === n.id)) {
+                  list.push({
+                    id: n.id,
+                    type: n.type || 'info',
+                    icon: n.icon || '🔔',
+                    title: n.title,
+                    desc: n.description || '',
+                    link: n.link || '/invoices',
+                    time: n.is_read ? (locale === 'vi' ? 'Đã xem' : 'Read') : new Date(n.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'short', day: 'numeric' }),
+                    isRead: n.is_read,
+                    fromBackend: true,
+                  });
+                }
               });
-            });
-          } catch {
-            // Backend unavailable
+            } catch {
+              // Backend unavailable
+            }
           }
         }
 
@@ -164,9 +169,12 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
         const localInvoices = localSaved ? JSON.parse(localSaved) : [];
 
         let apiInvoices = [];
-        if (user?.address) {
+        if (user?.address || user?.email) {
           try {
-            const res = await api.invoiceApi.list({ userId: user.address });
+            const res = await api.invoiceApi.list({
+              userId: user?.address || '',
+              email: user?.email || '',
+            });
             apiInvoices = res.data || [];
           } catch {
             // fallback
@@ -186,7 +194,12 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
         merged.forEach((inv) => {
           const due = inv.dueDate ? new Date(inv.dueDate).getTime() : inv.due_date ? new Date(inv.due_date).getTime() : null;
           const isPaid = inv.status === 'paid';
-          const isRecipient = inv.recipient_id?.toLowerCase() === user?.address?.toLowerCase();
+          const userAddr = user?.address?.toLowerCase();
+          const userEmail = user?.email?.toLowerCase();
+          const isRecipient = Boolean(
+            (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+            (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+          );
 
           if (!isPaid && due && due < now) {
             list.push({
@@ -212,6 +225,20 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
                 : (locale === 'vi' ? `Hóa đơn "${inv.title || 'Hóa đơn'}" $${inv.amount || inv.total} đến hạn trong ${daysLeft} ngày.` : `${inv.title || 'Invoice'} of $${inv.amount || inv.total} due in ${daysLeft} day(s).`),
               link: `/invoices/${inv.id}`,
               time: locale === 'vi' ? 'Sắp tới' : 'Upcoming',
+            });
+          } else if (isRecipient && !isPaid) {
+            // New pending invoice received by recipient!
+            const senderName = inv.from_data?.name || inv.from?.name || (inv.creator_id ? inv.creator_id.slice(0, 6) + '...' + inv.creator_id.slice(-4) : 'Đối tác');
+            list.push({
+              id: `new-inv-${inv.id}`,
+              type: 'info',
+              icon: '📩',
+              title: locale === 'vi' ? 'Hóa đơn mới nhận được' : 'New Invoice Received',
+              desc: locale === 'vi'
+                ? `${senderName} đã gửi hóa đơn "${inv.title || 'Hóa đơn'}" trị giá $${inv.amount || inv.total} ${inv.currency || 'USD'}.`
+                : `${senderName} sent you invoice "${inv.title || 'Invoice'}" for $${inv.amount || inv.total} ${inv.currency || 'USD'}.`,
+              link: `/invoices/${inv.id}`,
+              time: new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { month: 'short', day: 'numeric' }),
             });
           } else if (isPaid) {
             list.push({
@@ -252,7 +279,7 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
     };
 
     computeNotifications();
-  }, [user?.address, locale, t, readNotifIds]);
+  }, [user?.address, user?.email, locale, t, readNotifIds]);
 
   const notifCount = notifications.filter((n) => !n.isRead).length;
 

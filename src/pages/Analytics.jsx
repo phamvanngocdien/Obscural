@@ -23,14 +23,17 @@ export default function Analytics() {
   useEffect(() => {
     const controller = new AbortController();
     const fetchData = async () => {
-      if (!user?.address) {
+      if (!user?.address && !user?.email) {
         setInvoices([]);
         setLoading(false);
         return;
       }
       try {
         setLoading(true);
-        const res = await api.invoiceApi.list({ userId: user.address });
+        const res = await api.invoiceApi.list({
+          userId: user.address || '',
+          email: user.email || '',
+        });
         const list = res.data || [];
         list.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
         setInvoices(list);
@@ -43,7 +46,7 @@ export default function Analytics() {
     fetchData();
 
     return () => controller.abort();
-  }, [user?.address]);
+  }, [user?.address, user?.email]);
 
   // Compute calculated financial telemetry
   const totalInvoices = invoices.length;

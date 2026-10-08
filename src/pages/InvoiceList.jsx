@@ -16,14 +16,17 @@ export default function InvoiceList() {
 
   useEffect(() => {
     const fetchInvoices = async () => {
-      if (!user?.address) {
+      if (!user?.address && !user?.email) {
         setInvoices([]);
         setLoading(false);
         return;
       }
       try {
         setLoading(true);
-        const res = await api.invoiceApi.list({ userId: user.address });
+        const res = await api.invoiceApi.list({
+          userId: user.address || '',
+          email: user.email || '',
+        });
         const list = res.data || [];
         list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         setInvoices(list);
@@ -34,7 +37,7 @@ export default function InvoiceList() {
       }
     };
     fetchInvoices();
-  }, [user?.address]);
+  }, [user?.address, user?.email]);
 
   const videoRef = useRef(null);
 
@@ -51,17 +54,30 @@ export default function InvoiceList() {
       toast.info('No invoices to export');
       return;
     }
-    const headers = ['ID', 'Title', 'Recipient', 'Amount', 'Currency', 'Status', 'Due Date', 'Created At'];
-    const rows = filteredInvoices.map((inv) => [
-      inv.id || '',
-      `"${(inv.title || 'Invoice').replace(/"/g, '""')}"`,
-      `"${(inv.to?.name || inv.recipient_id || '').replace(/"/g, '""')}"`,
-      inv.amount || inv.total || 0,
-      inv.currency || 'USD',
-      inv.status || 'pending',
-      inv.dueDate || inv.due_date || '',
-      inv.created_at || '',
-    ]);
+    const headers = ['ID', 'Title', 'Counterparty', 'Type', 'Amount', 'Currency', 'Status', 'Due Date', 'Created At'];
+    const rows = filteredInvoices.map((inv) => {
+      const userAddr = user?.address?.toLowerCase();
+      const userEmail = user?.email?.toLowerCase();
+      const isIncoming = Boolean(
+        (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+        (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+      );
+      const party = isIncoming
+        ? (inv.from_data?.name || inv.from?.name || inv.from_data?.email || inv.creator_id || 'Unknown')
+        : (inv.to_data?.name || inv.to?.name || inv.to_data?.email || inv.recipient_id || 'Unknown');
+
+      return [
+        inv.id || '',
+        `"${(inv.title || 'Invoice').replace(/"/g, '""')}"`,
+        `"${party.replace(/"/g, '""')}"`,
+        isIncoming ? 'Incoming' : 'Outgoing',
+        inv.amount || inv.total || 0,
+        inv.currency || 'USD',
+        inv.status || 'pending',
+        inv.dueDate || inv.due_date || '',
+        inv.created_at || '',
+      ];
+    });
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -80,9 +96,10 @@ export default function InvoiceList() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const title = (inv.title || '').toLowerCase();
-      const recipient = (inv.to?.name || inv.recipient_id || '').toLowerCase();
+      const recipient = (inv.to_data?.name || inv.to?.name || inv.to_data?.email || inv.recipient_id || '').toLowerCase();
+      const sender = (inv.from_data?.name || inv.from?.name || inv.from_data?.email || inv.creator_id || '').toLowerCase();
       const idStr = (inv.id || '').toLowerCase();
-      return title.includes(q) || recipient.includes(q) || idStr.includes(q);
+      return title.includes(q) || recipient.includes(q) || sender.includes(q) || idStr.includes(q);
     }
     return true;
   });
@@ -227,25 +244,58 @@ export default function InvoiceList() {
               {locale === 'vi' ? 'Hóa đơn của tôi' : 'My Invoices'} ({filteredInvoices.length})
             </h3>
             <div className="invoice-items">
-              {filteredInvoices.map((inv) => (
-                <Link key={inv.id} to={`/invoices/${inv.id}`} className="invoice-item">
-                  <div className="invoice-item-left">
-                    <span className="invoice-item-title">{inv.title || `INV-${String(inv.id).slice(0, 6)}`}</span>
-                    <span className="invoice-item-date">{new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US')}</span>
-                    {inv.to?.name && (
-                      <span className="invoice-item-recipient">→ {inv.to.name}</span>
-                    )}
-                  </div>
-                  <div className="invoice-item-right">
-                    <span className="invoice-item-amount">
-                      ${inv.amount || inv.total} {inv.currency || 'USD'}
-                    </span>
-                    <span className={`invoice-item-status status-${inv.status}`}>
-                      {statusLabel(inv.status)}
-                    </span>
-                  </div>
-                </Link>
-              ))}
+              {filteredInvoices.map((inv) => {
+                const userAddr = user?.address?.toLowerCase();
+                const userEmail = user?.email?.toLowerCase();
+                const isIncoming = Boolean(
+                  (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+                  (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+                );
+                const counterpartyName = isIncoming
+                  ? (inv.from_data?.name || inv.from?.name || (inv.creator_id ? inv.creator_id.slice(0, 6) + '...' + inv.creator_id.slice(-4) : 'Đối tác'))
+                  : (inv.to_data?.name || inv.to?.name || (inv.recipient_id ? inv.recipient_id.slice(0, 6) + '...' + inv.recipient_id.slice(-4) : 'Khách hàng'));
+
+                return (
+                  <Link key={inv.id} to={`/invoices/${inv.id}`} className="invoice-item">
+                    <div className="invoice-item-left">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="invoice-item-title">{inv.title || `INV-${String(inv.id).slice(0, 6)}`}</span>
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            background: isIncoming ? 'rgba(93, 228, 199, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+                            color: isIncoming ? '#5DE4C7' : '#C4B5FD',
+                            border: isIncoming ? '1px solid rgba(93, 228, 199, 0.3)' : '1px solid rgba(139, 92, 246, 0.3)',
+                          }}
+                        >
+                          {isIncoming ? (locale === 'vi' ? 'Nhận' : 'In') : (locale === 'vi' ? 'Gửi' : 'Out')}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
+                        <span className="invoice-item-date">{new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US')}</span>
+                        <span className="invoice-item-recipient" style={{ color: isIncoming ? 'rgba(93, 228, 199, 0.9)' : 'rgba(200, 200, 220, 0.7)' }}>
+                          {isIncoming ? '← ' : '→ '}
+                          {isIncoming ? (locale === 'vi' ? 'Từ: ' : 'From: ') : (locale === 'vi' ? 'Đến: ' : 'To: ')}
+                          {counterpartyName}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="invoice-item-right">
+                      <span className="invoice-item-amount">
+                        ${inv.amount || inv.total} {inv.currency || 'USD'}
+                      </span>
+                      <span className={`invoice-item-status status-${inv.status}`}>
+                        {statusLabel(inv.status)}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         ) : !loading ? (

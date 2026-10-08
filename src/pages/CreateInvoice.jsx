@@ -143,17 +143,28 @@ export default function CreateInvoice() {
 
         // 2. Fetch past invoice partners from Supabase
         try {
-          const res = await api.invoiceApi.list({ userId: user.address });
+          const res = await api.invoiceApi.list({
+            userId: user.address || '',
+            email: user.email || '',
+          });
           (res.data || []).forEach((inv) => {
-            const isRecipient = inv.recipient_id?.toLowerCase() === user?.address?.toLowerCase();
-            const otherParty = isRecipient ? inv.creator_id : inv.recipient_id;
-            if (otherParty && !seen.has(otherParty.toLowerCase())) {
-              seen.add(otherParty.toLowerCase());
+            const userAddr = user?.address?.toLowerCase();
+            const userEmail = user?.email?.toLowerCase();
+            const isRecipient = Boolean(
+              (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+              (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+            );
+            const otherParty = isRecipient ? (inv.creator_id || inv.from_data?.walletAddress) : (inv.recipient_id || inv.to_data?.walletAddress);
+            const otherPartyKey = (otherParty || (isRecipient ? inv.from_data?.email : inv.to_data?.email) || '').toLowerCase();
+            if (otherPartyKey && !seen.has(otherPartyKey)) {
+              seen.add(otherPartyKey);
+              const toObj = inv.to_data || inv.to || {};
+              const fromObj = inv.from_data || inv.from || {};
               extracted.push({
-                name: isRecipient ? (inv.from?.name || otherParty.slice(0, 8)) : (inv.to?.name || otherParty.slice(0, 8)),
-                email: (isRecipient ? inv.from?.email : inv.to?.email) || '',
-                address: (isRecipient ? inv.from?.address : inv.to?.address) || '',
-                walletAddress: otherParty,
+                name: isRecipient ? (fromObj.name || (otherParty ? otherParty.slice(0, 8) : 'Partner')) : (toObj.name || (otherParty ? otherParty.slice(0, 8) : 'Client')),
+                email: (isRecipient ? fromObj.email : toObj.email) || '',
+                address: (isRecipient ? fromObj.address : toObj.address) || '',
+                walletAddress: otherParty || '',
               });
             }
           });
@@ -266,25 +277,34 @@ export default function CreateInvoice() {
     }
 
     // Save invoice to Supabase backend
-    try {
-      if (user?.address) {
-        await api.invoiceApi.create({
-          creator_id: user.address,
-          recipient_id: invoice.recipient_id,
-          amount: invoice.total,
-          currency: invoice.currency,
-          title: invoice.title,
-          status: 'pending',
-          due_date: invoice.dueDate || null,
-          metadata: { from: invoice.from, to: invoice.to, items, taxPercent, note },
-        });
-      }
-    } catch (err) {
-      console.warn('Backend invoice save notice:', err);
-    }
+    const creatorId = user?.address || user?.email || 'anonymous';
+    const recipientId = to.walletAddress || to.email || to.name || '';
 
-    toast.success('Invoice created successfully!');
-    navigate('/invoices');
+    try {
+      await api.invoiceApi.create({
+        creator_id: creatorId,
+        recipient_id: recipientId,
+        amount: invoice.total,
+        subtotal: invoice.subtotal,
+        tax_amount: invoice.taxAmount,
+        tax_percent: invoice.taxPercent,
+        total: invoice.total,
+        currency: invoice.currency,
+        title: invoice.title,
+        status: 'pending',
+        due_date: invoice.dueDate || null,
+        items: invoice.items,
+        note: invoice.note || '',
+        from_data: invoice.from,
+        to_data: invoice.to,
+      });
+
+      toast.success(locale === 'vi' ? 'Đã tạo hóa đơn thành công!' : 'Invoice created successfully!');
+      navigate('/invoices');
+    } catch (err) {
+      console.error('Failed to create invoice:', err);
+      toast.error(locale === 'vi' ? `Lỗi tạo hóa đơn: ${err.message || 'Không thể lưu lên hệ thống'}` : `Failed to create invoice: ${err.message || 'Server error'}`);
+    }
   };
 
   const months = locale === 'vi'
@@ -450,6 +470,7 @@ export default function CreateInvoice() {
             <span className="ci-items-col-item">{t('create.itemDesc', 'Item / Service')}:</span>
             <span className="ci-items-col-qty">{t('create.itemQty', 'Quantity')}:</span>
             <span className="ci-items-col-price">{t('create.itemPrice', 'Unit Price')} ({currency}):</span>
+            <span className="ci-items-col-action"></span>
           </div>
           {items.map((item, i) => (
             <div key={i} className="ci-item-row">
@@ -476,18 +497,25 @@ export default function CreateInvoice() {
                   +
                 </button>
               </div>
-              <input
-                className="ci-input ci-item-price"
-                type="number"
-                step="any"
-                placeholder="0.00"
-                value={item.price}
-                onChange={(e) => updateItem(i, 'price', e.target.value)}
-              />
-              {items.length > 1 && (
+              <div className="ci-item-price-wrap">
+                <span className="ci-item-price-prefix">
+                  {currency === 'USD' ? '$' : currency === 'ETH' ? 'Ξ' : ''}
+                </span>
+                <input
+                  className="ci-input ci-item-price"
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={item.price}
+                  onChange={(e) => updateItem(i, 'price', e.target.value)}
+                />
+              </div>
+              {items.length > 1 ? (
                 <button type="button" className="ci-item-remove" onClick={() => removeItem(i)} title={locale === 'vi' ? 'Xóa mục' : 'Remove item'}>
                   ✕
                 </button>
+              ) : (
+                <div className="ci-item-remove-spacer" />
               )}
             </div>
           ))}

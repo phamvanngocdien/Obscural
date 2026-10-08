@@ -42,12 +42,15 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!user?.address) return;
+    if (!user?.address && !user?.email) return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await api.invoiceApi.list({ userId: user.address });
+        const res = await api.invoiceApi.list({
+          userId: user.address || '',
+          email: user.email || '',
+        });
         const list = res.data || [];
         list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         setInvoices(list);
@@ -58,14 +61,21 @@ export default function Dashboard() {
       }
     };
     fetchData();
-  }, [user?.address]);
+  }, [user?.address, user?.email]);
 
   // Build activity from invoices
   const activities = invoices.slice(0, 10).map((inv) => {
-    const isInbound = inv.recipient_id?.toLowerCase() === user?.address?.toLowerCase();
-    const otherParty = isInbound ? inv.creator_id : inv.recipient_id;
-    const name = otherParty ? otherParty.slice(0, 8) : 'Unknown';
-    const amount = parseFloat(inv.amount || 0);
+    const userAddr = user?.address?.toLowerCase();
+    const userEmail = user?.email?.toLowerCase();
+    const isInbound = Boolean(
+      (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+      (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+    );
+    const otherParty = isInbound
+      ? (inv.from_data?.name || inv.from?.name || inv.from_data?.email || inv.creator_id)
+      : (inv.to_data?.name || inv.to?.name || inv.to_data?.email || inv.recipient_id);
+    const name = otherParty ? (otherParty.startsWith('0x') ? otherParty.slice(0, 8) : otherParty) : 'Unknown';
+    const amount = parseFloat(inv.amount || inv.total || 0);
     const date = new Date(inv.created_at);
     const dateStr = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} / ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 
