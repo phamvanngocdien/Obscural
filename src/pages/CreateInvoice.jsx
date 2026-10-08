@@ -119,16 +119,25 @@ export default function CreateInvoice() {
     if (!user?.address) return;
     const loadFromSupabase = async () => {
       try {
-        const seen = new Set();
+        const seenWallets = new Set();
+        const seenEmails = new Set();
         const extracted = [];
+
+        const userAddrLower = user?.address?.toLowerCase().trim();
+        const userEmailLower = user?.email?.toLowerCase().trim();
+        if (userAddrLower) seenWallets.add(userAddrLower);
+        if (userEmailLower) seenEmails.add(userEmailLower);
 
         // 1. Fetch saved contacts from Supabase
         try {
           const res = await contactsApi.list(user.address);
           (res.data || []).forEach((c) => {
-            const key = (c.email || c.name || c.wallet_address || '').toLowerCase();
-            if (key && !seen.has(key)) {
-              seen.add(key);
+            const w = (c.wallet_address || c.walletAddress || '').toLowerCase().trim();
+            const em = (c.email || '').toLowerCase().trim();
+            const isDup = (w && seenWallets.has(w)) || (em && seenEmails.has(em));
+            if (!isDup) {
+              if (w) seenWallets.add(w);
+              if (em) seenEmails.add(em);
               extracted.push({
                 id: c.id,
                 name: c.name || '',
@@ -142,25 +151,29 @@ export default function CreateInvoice() {
           // ignore
         }
 
-        // 2. Fetch past invoice partners from Supabase
+        // 2. Fetch past invoice partners from Supabase (only if not already in contacts)
         try {
           const res = await api.invoiceApi.list({
             userId: user.address || '',
             email: user.email || '',
           });
           (res.data || []).forEach((inv) => {
-            const userAddr = user?.address?.toLowerCase();
-            const userEmail = user?.email?.toLowerCase();
             const isRecipient = Boolean(
-              (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
-              (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+              (userAddrLower && (inv.recipient_id?.toLowerCase() === userAddrLower || inv.to_data?.walletAddress?.toLowerCase() === userAddrLower)) ||
+              (userEmailLower && inv.to_data?.email?.toLowerCase() === userEmailLower)
             );
-            const otherParty = isRecipient ? (inv.creator_id || inv.from_data?.walletAddress) : (inv.recipient_id || inv.to_data?.walletAddress);
-            const otherPartyKey = (otherParty || (isRecipient ? inv.from_data?.email : inv.to_data?.email) || '').toLowerCase();
-            if (otherPartyKey && !seen.has(otherPartyKey)) {
-              seen.add(otherPartyKey);
-              const toObj = inv.to_data || inv.to || {};
-              const fromObj = inv.from_data || inv.from || {};
+            const toObj = inv.to_data || inv.to || {};
+            const fromObj = inv.from_data || inv.from || {};
+            const otherParty = isRecipient ? (inv.creator_id || fromObj.walletAddress) : (inv.recipient_id || toObj.walletAddress);
+            const otherWallet = (otherParty || (isRecipient ? fromObj.walletAddress : toObj.walletAddress) || '').toLowerCase().trim();
+            const otherEmail = ((isRecipient ? fromObj.email : toObj.email) || '').toLowerCase().trim();
+
+            const isDupWallet = Boolean(otherWallet && seenWallets.has(otherWallet));
+            const isDupEmail = Boolean(otherEmail && seenEmails.has(otherEmail));
+
+            if (!isDupWallet && !isDupEmail && (otherWallet || otherEmail)) {
+              if (otherWallet) seenWallets.add(otherWallet);
+              if (otherEmail) seenEmails.add(otherEmail);
               extracted.push({
                 name: isRecipient ? (fromObj.name || (otherParty ? otherParty.slice(0, 8) : 'Partner')) : (toObj.name || (otherParty ? otherParty.slice(0, 8) : 'Client')),
                 email: (isRecipient ? fromObj.email : toObj.email) || '',

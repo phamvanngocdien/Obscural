@@ -332,7 +332,7 @@ export const contactsApi = {
     }
   },
 
-  /** Create contact */
+  /** Create or update contact */
   create: async (data) => {
     try {
       return await request('/api/contacts', {
@@ -341,11 +341,46 @@ export const contactsApi = {
       });
     } catch (err) {
       try {
+        const ownerId = data.userId || data.owner_id;
+        const walletAddr = (data.walletAddress || data.wallet_address || '').trim();
+        const email = (data.email || '').trim();
+
+        // Check if contact already exists for this owner
+        if (ownerId && (walletAddr || email)) {
+          let existingQuery = supabase.from('contacts').select('*').eq('owner_id', ownerId);
+          if (walletAddr && email) {
+            existingQuery = existingQuery.or(`wallet_address.ilike.${walletAddr},email.ilike.${email}`);
+          } else if (walletAddr) {
+            existingQuery = existingQuery.ilike('wallet_address', walletAddr);
+          } else if (email) {
+            existingQuery = existingQuery.ilike('email', email);
+          }
+          const { data: existingList } = await existingQuery;
+          if (existingList && existingList.length > 0) {
+            const existingId = existingList[0].id;
+            const updateFields = {
+              name: data.name || existingList[0].name,
+              email: email || existingList[0].email,
+              wallet_address: walletAddr || existingList[0].wallet_address,
+              home_address: data.homeAddress || data.home_address || existingList[0].home_address,
+              updated_at: new Date().toISOString(),
+            };
+            const { data: updated, error: updateErr } = await supabase
+              .from('contacts')
+              .update(updateFields)
+              .eq('id', existingId)
+              .select()
+              .single();
+            if (!updateErr && updated) return { success: true, data: updated };
+            return { success: true, data: existingList[0] };
+          }
+        }
+
         const row = {
-          owner_id: data.userId || data.owner_id,
+          owner_id: ownerId,
           name: data.name || '',
-          email: data.email || '',
-          wallet_address: data.walletAddress || data.wallet_address || '',
+          email: email,
+          wallet_address: walletAddr,
           home_address: data.homeAddress || data.home_address || '',
           company: data.company || '',
           notes: data.notes || '',

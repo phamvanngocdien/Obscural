@@ -63,14 +63,24 @@ export default function Contact() {
 
         // 2. Fetch contacts from Supabase
         const currentList = [];
-        const seen = new Set();
+        const seenWallets = new Set();
+        const seenEmails = new Set();
+
+        const userAddrLower = user?.address?.toLowerCase().trim();
+        const userEmailLower = user?.email?.toLowerCase().trim();
+        if (userAddrLower) seenWallets.add(userAddrLower);
+        if (userEmailLower) seenEmails.add(userEmailLower);
+
         try {
           const backendRes = await contactsApi.list(user.address);
           const raw = backendRes.data || [];
           raw.forEach((c) => {
-            const key = (c.email || c.name || c.wallet_address || '').toLowerCase();
-            if (key && !seen.has(key)) {
-              seen.add(key);
+            const w = (c.wallet_address || c.walletAddress || '').toLowerCase().trim();
+            const em = (c.email || '').toLowerCase().trim();
+            const isDup = (w && seenWallets.has(w)) || (em && seenEmails.has(em));
+            if (!isDup) {
+              if (w) seenWallets.add(w);
+              if (em) seenEmails.add(em);
               currentList.push({
                 id: c.id,
                 name: c.name || '',
@@ -88,28 +98,32 @@ export default function Contact() {
           console.warn('Failed to fetch contacts from Supabase:', e);
         }
 
-        // 3. Extract counterparties from invoice history on Supabase
+        // 3. Extract counterparties from invoice history on Supabase (only if not already in contacts)
         try {
           const res = await api.invoiceApi.list({
             userId: user.address || '',
             email: user.email || '',
           });
           (res.data || []).forEach((inv) => {
-            const userAddr = user?.address?.toLowerCase();
-            const userEmail = user?.email?.toLowerCase();
             const isRecipient = Boolean(
-              (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
-              (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+              (userAddrLower && (inv.recipient_id?.toLowerCase() === userAddrLower || inv.to_data?.walletAddress?.toLowerCase() === userAddrLower)) ||
+              (userEmailLower && inv.to_data?.email?.toLowerCase() === userEmailLower)
             );
-            const otherParty = isRecipient ? (inv.creator_id || inv.from_data?.walletAddress) : (inv.recipient_id || inv.to_data?.walletAddress);
-            const otherKey = (otherParty || (isRecipient ? inv.from_data?.email : inv.to_data?.email) || '').toLowerCase();
-            if (otherKey && !seen.has(otherKey)) {
-              seen.add(otherKey);
-              const toObj = inv.to_data || inv.to || {};
-              const fromObj = inv.from_data || inv.from || {};
+            const toObj = inv.to_data || inv.to || {};
+            const fromObj = inv.from_data || inv.from || {};
+            const otherParty = isRecipient ? (inv.creator_id || fromObj.walletAddress) : (inv.recipient_id || toObj.walletAddress);
+            const otherWallet = (otherParty || (isRecipient ? fromObj.walletAddress : toObj.walletAddress) || '').toLowerCase().trim();
+            const otherEmail = ((isRecipient ? fromObj.email : toObj.email) || '').toLowerCase().trim();
+
+            const isDupWallet = Boolean(otherWallet && seenWallets.has(otherWallet));
+            const isDupEmail = Boolean(otherEmail && seenEmails.has(otherEmail));
+
+            if (!isDupWallet && !isDupEmail && (otherWallet || otherEmail)) {
+              if (otherWallet) seenWallets.add(otherWallet);
+              if (otherEmail) seenEmails.add(otherEmail);
               const otherName = isRecipient ? (fromObj.name || (otherParty ? otherParty.slice(0, 8) : 'Partner')) : (toObj.name || (otherParty ? otherParty.slice(0, 8) : 'Client'));
               currentList.push({
-                id: `inv-${otherKey}`,
+                id: `inv-${otherWallet || otherEmail}`,
                 name: otherName,
                 email: (isRecipient ? fromObj.email : toObj.email) || '',
                 address: (isRecipient ? fromObj.address : toObj.address) || '',
@@ -270,9 +284,6 @@ export default function Contact() {
       (c.address || '').toLowerCase().includes(q)
     );
   });
-
-  const recentContacts = filtered.slice(0, 3);
-  const allContacts = filtered;
 
   return (
     <div className="contact-page">
@@ -638,117 +649,65 @@ export default function Contact() {
           </button>
         </div>
       ) : (
-        <>
-          {/* Recent Contacts (shown only when not searching) */}
-          {!search && recentContacts.length > 0 && (
-            <div className="contact-section">
-              <h3 className="contact-section-title">{locale === 'vi' ? 'Liên hệ gần đây' : 'Recent Contacts'} ({recentContacts.length})</h3>
-              <div className="contact-list">
-                {recentContacts.map((c) => (
-                  <div key={c.id} className="contact-item">
-                    <div className="contact-item-left">
-                      <div className="contact-item-avatar">
-                        {c.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="contact-item-info">
-                        <span className="contact-item-name">{c.name}</span>
-                        <span className="contact-item-email">{c.email || (locale === 'vi' ? 'Chưa có email' : 'No email')}</span>
-                        {(c.homeAddress || c.address) && (
-                          <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
-                            📍 {c.homeAddress || c.address}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {c.walletAddress && (
-                        <span className="contact-item-addr" title={c.walletAddress}>
-                          {c.walletAddress.slice(0, 6)}...{c.walletAddress.slice(-4)}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteContact(c.id, c.name)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#FF6B7A',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          padding: '4px',
-                          opacity: 0.7,
-                        }}
-                        title={locale === 'vi' ? 'Xóa liên hệ' : 'Delete Contact'}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
+        /* Unified Contacts List */
+        <div className="contact-section">
+          <h3 className="contact-section-title">
+            {search
+              ? (locale === 'vi' ? `Kết quả tìm kiếm (${filtered.length})` : `Search Results (${filtered.length})`)
+              : (locale === 'vi' ? `Tất cả liên hệ (${filtered.length})` : `All Contacts (${filtered.length})`)}
+          </h3>
+          <div className="contact-list">
+            {filtered.length === 0 ? (
+              <div className="contact-empty">
+                {locale === 'vi'
+                  ? `Không tìm thấy liên hệ nào khớp với "${search}"`
+                  : `No contacts found matching "${search}"`}
               </div>
-            </div>
-          )}
-
-          {/* All Contacts */}
-          <div className="contact-section">
-            <h3 className="contact-section-title">
-              {search
-                ? (locale === 'vi' ? `Kết quả tìm kiếm (${allContacts.length})` : `Search Results (${allContacts.length})`)
-                : (locale === 'vi' ? `Tất cả liên hệ (${allContacts.length})` : `All Contacts (${allContacts.length})`)}
-            </h3>
-            <div className="contact-list">
-              {allContacts.length === 0 ? (
-                <div className="contact-empty">
-                  {locale === 'vi'
-                    ? `Không tìm thấy liên hệ nào khớp với "${search}"`
-                    : `No contacts found matching "${search}"`}
-                </div>
-              ) : (
-                allContacts.map((c) => (
-                  <div key={`all-${c.id}`} className="contact-item">
-                    <div className="contact-item-left">
-                      <div className="contact-item-avatar">
-                        {c.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="contact-item-info">
-                        <span className="contact-item-name">{c.name}</span>
-                        <span className="contact-item-email">{c.email || 'No email'}</span>
-                        {(c.homeAddress || c.address) && (
-                          <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
-                            📍 {c.homeAddress || c.address}
-                          </span>
-                        )}
-                      </div>
+            ) : (
+              filtered.map((c) => (
+                <div key={c.id} className="contact-item">
+                  <div className="contact-item-left">
+                    <div className="contact-item-avatar">
+                      {c.name.charAt(0).toUpperCase()}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {c.walletAddress && (
-                        <span className="contact-item-addr" title={c.walletAddress}>
-                          {c.walletAddress.slice(0, 6)}...{c.walletAddress.slice(-4)}
+                    <div className="contact-item-info">
+                      <span className="contact-item-name">{c.name}</span>
+                      <span className="contact-item-email">{c.email || (locale === 'vi' ? 'Chưa có email' : 'No email')}</span>
+                      {(c.homeAddress || c.address) && (
+                        <span style={{ fontSize: '10px', color: 'rgba(160, 160, 200, 0.55)', marginTop: '2px' }}>
+                          📍 {c.homeAddress || c.address}
                         </span>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteContact(c.id, c.name)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#FF6B7A',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          padding: '4px',
-                          opacity: 0.7,
-                        }}
-                        title="Delete Contact"
-                      >
-                        ✕
-                      </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {c.walletAddress && (
+                      <span className="contact-item-addr" title={c.walletAddress}>
+                        {c.walletAddress.slice(0, 6)}...{c.walletAddress.slice(-4)}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteContact(c.id, c.name)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#FF6B7A',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        padding: '4px',
+                        opacity: 0.7,
+                      }}
+                      title={locale === 'vi' ? 'Xóa liên hệ' : 'Delete Contact'}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
