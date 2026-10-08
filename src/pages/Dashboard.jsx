@@ -52,8 +52,16 @@ export default function Dashboard() {
           email: user.email || '',
         });
         const list = res.data || [];
-        list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        setInvoices(list);
+        // Deduplicate by ID
+        const uniqueMap = new Map();
+        list.forEach((item) => {
+          if (item?.id && !uniqueMap.has(item.id)) {
+            uniqueMap.set(item.id, item);
+          }
+        });
+        const uniqueList = Array.from(uniqueMap.values());
+        uniqueList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setInvoices(uniqueList);
       } catch (err) {
         console.error('Failed to load dashboard data from Supabase', err);
       } finally {
@@ -67,14 +75,17 @@ export default function Dashboard() {
   const activities = invoices.slice(0, 10).map((inv) => {
     const userAddr = user?.address?.toLowerCase();
     const userEmail = user?.email?.toLowerCase();
-    const isInbound = Boolean(
+    const isRecipient = Boolean(
       (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
       (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
     );
-    const otherParty = isInbound
+    // Creator is payee (income +), Recipient is payer (expense -)
+    const isIncome = !isRecipient;
+
+    const counterParty = isRecipient
       ? (inv.from_data?.name || inv.from?.name || inv.from_data?.email || inv.creator_id)
       : (inv.to_data?.name || inv.to?.name || inv.to_data?.email || inv.recipient_id);
-    const name = otherParty ? (otherParty.startsWith('0x') ? otherParty.slice(0, 8) : otherParty) : 'Unknown';
+    const name = counterParty ? (counterParty.startsWith('0x') ? counterParty.slice(0, 8) : counterParty) : 'Unknown';
     const amount = parseFloat(inv.amount || inv.total || 0);
     const date = new Date(inv.created_at);
     const dateStr = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} / ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
@@ -84,10 +95,17 @@ export default function Dashboard() {
       name,
       initial: name.charAt(0).toUpperCase(),
       date: dateStr,
-      amount: `${isInbound ? '+' : '-'}${amount} ${inv.currency || 'USD'}`,
+      amount: `${isIncome ? '+' : '-'}${amount} ${inv.currency || 'USD'}`,
       status: inv.status === 'paid' ? 'Success' : inv.status === 'overdue' ? 'Failed' : 'Pending',
       statusKey: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'failed' : 'pending',
-      isInbound,
+      isIncome,
+      isRecipient,
+      roleBadge: isIncome
+        ? (locale === 'vi' ? 'Người tạo' : 'Creator')
+        : (locale === 'vi' ? 'Người trả' : 'Payer'),
+      typeLabel: isIncome
+        ? (locale === 'vi' ? 'Khoản thu' : 'Receivable')
+        : (locale === 'vi' ? 'Khoản chi' : 'Payable'),
     };
   });
 
@@ -195,16 +213,32 @@ export default function Dashboard() {
             {activities.filter((a) => !filterStatus || a.status === filterStatus).map((a) => (
               <div key={a.id} className="dash-activity-item">
                 <div className="dash-activity-left">
-                  <div className="dash-avatar" style={{ '--avatar-color': a.isInbound ? 'var(--color-primary)' : 'var(--color-accent)' }}>
+                  <div className="dash-avatar" style={{ '--avatar-color': a.isIncome ? 'var(--color-primary)' : '#F59E0B' }}>
                     {a.initial}
                   </div>
                   <div className="dash-activity-info">
-                    <span className="dash-activity-name">{a.name}</span>
-                    <span className="dash-activity-date">{a.date}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="dash-activity-name">{a.name}</span>
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '8px',
+                          textTransform: 'uppercase',
+                          background: a.isIncome ? 'rgba(139, 92, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                          color: a.isIncome ? '#C4B5FD' : '#FBBF24',
+                          border: a.isIncome ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                        }}
+                      >
+                        {a.roleBadge}
+                      </span>
+                    </div>
+                    <span className="dash-activity-date">{a.date} · {a.typeLabel}</span>
                   </div>
                 </div>
                 <div className="dash-activity-right">
-                  <span className={`dash-activity-amount ${a.isInbound ? 'amount-in' : 'amount-out'}`}>
+                  <span className={`dash-activity-amount ${a.isIncome ? 'amount-in' : 'amount-out'}`}>
                     {a.amount}
                   </span>
                   <span className="dash-activity-status" style={{ color: statusColors[a.statusKey] }}>

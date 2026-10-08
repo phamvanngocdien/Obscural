@@ -2,13 +2,18 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import { QRCodeSVG } from 'qrcode.react';
+import { ethers } from 'ethers';
 import { Spinner, toast } from '../components/common';
+import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
+import useWallet from '../hooks/useWallet';
 import api from '../services/api';
 import '../styles/InvoiceList.css';
 
 export default function InvoiceDetail() {
   const { id } = useParams();
+  const { user } = useAuthStore();
+  const wallet = useWallet();
   const { t, locale } = useI18nStore();
 
   const [inv, setInv] = useState(null);
@@ -17,6 +22,17 @@ export default function InvoiceDetail() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
+  const [isPayingOnChain, setIsPayingOnChain] = useState(false);
+  const [ethPrice, setEthPrice] = useState(2600);
+
+  useEffect(() => {
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ethereum?.usd) setEthPrice(data.ethereum.usd);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -39,12 +55,12 @@ export default function InvoiceDetail() {
     fetchInvoice();
   }, [id]);
 
-  const updateInvoiceStatus = async (newStatus) => {
+  const updateInvoiceStatus = async (newStatus, extraFields = {}) => {
     if (!inv) return;
     setProcessingAction(true);
     try {
-      const updated = { ...inv, status: newStatus };
-      await api.invoiceApi.update(inv.id, { status: newStatus });
+      const updated = { ...inv, status: newStatus, ...extraFields };
+      await api.invoiceApi.update(inv.id, { status: newStatus, ...extraFields });
       setInv(updated);
       toast.success(t('detail.statusUpdated', 'Invoice status updated!'));
     } catch (err) {
@@ -52,6 +68,122 @@ export default function InvoiceDetail() {
       toast.error('Failed to update invoice status on server');
     } finally {
       setProcessingAction(false);
+    }
+  };
+
+  const handlePayOnChain = async () => {
+    if (!inv) return;
+
+    if (!wallet.isConnected) {
+      toast.info(locale === 'vi' ? 'Vui lòng kết nối ví để thanh toán on-chain!' : 'Please connect your wallet to pay on-chain!');
+      wallet.openConnectModal?.();
+      return;
+    }
+
+    const targetPayoutAddress =
+      inv.from_data?.walletAddress ||
+      (inv.creator_id && inv.creator_id.startsWith('0x') ? inv.creator_id : null) ||
+      inv.from?.walletAddress;
+
+    if (!targetPayoutAddress || !targetPayoutAddress.startsWith('0x') || targetPayoutAddress.length < 20) {
+      toast.error(locale === 'vi' ? 'Người tạo hóa đơn chưa cung cấp địa chỉ ví Ethereum hợp lệ để nhận tiền!' : 'Issuer has not provided a valid Ethereum wallet address to receive funds!');
+      return;
+    }
+
+    if (!wallet.signer) {
+      toast.error(locale === 'vi' ? 'Ví chưa sẵn sàng để ký giao dịch. Vui lòng tải lại trang hoặc kết nối lại ví.' : 'Wallet signer not ready. Please reconnect wallet.');
+      return;
+    }
+
+    // Determine ETH amount
+    let ethToSend = 0;
+    if (inv.currency === 'ETH') {
+      ethToSend = parseFloat(inv.amount || inv.total || 0);
+    } else {
+      const fiatTotal = parseFloat(inv.amount || inv.total || 0);
+      ethToSend = parseFloat((fiatTotal / (ethPrice || 2600)).toFixed(6));
+    }
+
+    if (isNaN(ethToSend) || ethToSend <= 0) {
+      toast.error(locale === 'vi' ? 'Số tiền thanh toán không hợp lệ!' : 'Invalid payment amount!');
+      return;
+    }
+
+    const currentBalance = parseFloat(wallet.balance || 0);
+    if (currentBalance < ethToSend) {
+      toast.error(
+        locale === 'vi'
+          ? `Số dư không đủ! Ví bạn có ${currentBalance.toFixed(4)} ETH, cần thanh toán ${ethToSend} ETH (+ phí gas).`
+          : `Insufficient balance! You have ${currentBalance.toFixed(4)} ETH, required: ${ethToSend} ETH.`
+      );
+      return;
+    }
+
+    setIsPayingOnChain(true);
+    toast.info(
+      locale === 'vi'
+        ? `Đang mở ví... Vui lòng ký xác nhận chuyển ${ethToSend} ETH tới người nhận.`
+        : `Opening wallet... Please confirm transfer of ${ethToSend} ETH.`
+    );
+
+    try {
+      if (wallet.switchToSepolia && !wallet.isCorrectNetwork) {
+        try {
+          await wallet.switchToSepolia();
+        } catch {
+          // continue
+        }
+      }
+
+      // Execute on-chain transfer
+      const tx = await wallet.signer.sendTransaction({
+        to: targetPayoutAddress,
+        value: ethers.parseEther(ethToSend.toString()),
+      });
+
+      toast.info(
+        locale === 'vi'
+          ? `Giao dịch đã được gửi lên Sepolia (Tx: ${tx.hash.slice(0, 10)}...). Đang chờ xác nhận trên blockchain...`
+          : `Transaction sent to Sepolia (Tx: ${tx.hash.slice(0, 10)}...). Awaiting confirmation...`
+      );
+
+      // Wait for blockchain confirmation
+      await tx.wait(1);
+
+      // Save on-chain hash and status to Supabase
+      const updated = {
+        ...inv,
+        status: 'paid',
+        tx_hash: tx.hash,
+      };
+
+      await api.invoiceApi.update(inv.id, {
+        status: 'paid',
+        tx_hash: tx.hash,
+      });
+
+      setInv(updated);
+      wallet.refreshBalance?.();
+
+      toast.success(
+        locale === 'vi'
+          ? `Thanh toán On-chain thành công! Tiền đã được chuyển vào ví người nhận. Mã Tx: ${tx.hash.slice(0, 8)}...`
+          : `On-chain payment successful! Funds sent to recipient. Tx: ${tx.hash.slice(0, 8)}...`
+      );
+    } catch (err) {
+      console.error('On-chain payment error:', err);
+      const errMsg = err?.reason || err?.message || '';
+      if (errMsg.includes('user rejected') || errMsg.includes('ACTION_REJECTED') || errMsg.includes('rejected')) {
+        toast.info(locale === 'vi' ? 'Bạn đã hủy xác nhận giao dịch trên ví.' : 'Transaction cancelled in wallet.');
+      } else {
+        toast.error(
+          locale === 'vi'
+            ? `Thanh toán on-chain thất bại: ${errMsg.slice(0, 90)}`
+            : `Payment failed: ${errMsg.slice(0, 90)}`
+        );
+      }
+    } finally {
+      setIsPayingOnChain(false);
     }
   };
 
@@ -267,6 +399,14 @@ export default function InvoiceDetail() {
     toData.walletAddress ||
     '';
 
+  const userAddr = user?.address?.toLowerCase();
+  const userEmail = user?.email?.toLowerCase();
+  const isRecipient = Boolean(
+    (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || toData.walletAddress?.toLowerCase() === userAddr)) ||
+    (userEmail && toData.email?.toLowerCase() === userEmail)
+  );
+  const isCreator = !isRecipient;
+
   return (
     <div className="id-page">
       {/* Top action header */}
@@ -308,7 +448,7 @@ export default function InvoiceDetail() {
           <button
             className="id-action-btn id-btn-qr"
             onClick={() => setShowQrModal(true)}
-            title={t('invoiceDetail.payQr')}
+            title={isRecipient ? (locale === 'vi' ? 'Quét mã thanh toán' : 'Scan to Pay') : (locale === 'vi' ? 'Mã QR nhận tiền' : 'Receive QR')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -329,12 +469,63 @@ export default function InvoiceDetail() {
               <rect x="14" y="14" width="7" height="7" />
               <rect x="3" y="14" width="7" height="7" />
             </svg>
-            {t('invoiceDetail.payQr')}
+            {isRecipient ? (locale === 'vi' ? 'Thanh toán QR' : 'Pay QR') : (locale === 'vi' ? 'QR Nhận tiền' : 'Receive QR')}
           </button>
         </div>
       </div>
 
       <div className="id-card">
+        {/* Role identification banner */}
+        <div
+          style={{
+            padding: '12px 16px',
+            borderRadius: '12px',
+            marginBottom: 'var(--space-4)',
+            background: isRecipient ? 'rgba(245, 158, 11, 0.1)' : 'rgba(139, 92, 246, 0.1)',
+            border: isRecipient ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(139, 92, 246, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>{isRecipient ? '💳' : '📄'}</span>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: isRecipient ? '#FBBF24' : '#C4B5FD' }}>
+                {isRecipient
+                  ? (locale === 'vi' ? 'Hóa đơn gửi tới bạn (Bên thanh toán)' : 'Invoice sent to you (Payer)')
+                  : (locale === 'vi' ? 'Hóa đơn do bạn tạo (Bên thụ hưởng)' : 'Invoice created by you (Payee)')}
+              </div>
+              <div style={{ fontSize: '11px', color: 'rgba(220, 220, 240, 0.8)' }}>
+                {isRecipient
+                  ? (inv.status === 'paid'
+                      ? (locale === 'vi' ? 'Bạn đã thanh toán thành công hóa đơn này.' : 'You have paid this invoice.')
+                      : (locale === 'vi' ? `Bạn cần thanh toán cho ${fromData.name || 'người gửi'} số tiền này.` : `Please pay this amount to ${fromData.name || 'the issuer'}.`))
+                  : (inv.status === 'paid'
+                      ? (locale === 'vi' ? 'Hóa đơn đã được đối tác quyết toán thành công.' : 'Invoice has been fully settled by client.')
+                      : (locale === 'vi' ? `Khoản tiền đang chờ ${toData.name || 'khách hàng'} thanh toán.` : `Waiting for payment from ${toData.name || 'client'}.`))}
+              </div>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              padding: '3px 8px',
+              borderRadius: '6px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              background: isRecipient ? 'rgba(245, 158, 11, 0.2)' : 'rgba(139, 92, 246, 0.2)',
+              color: isRecipient ? '#FDE68A' : '#EDE9FE',
+              border: isRecipient ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(139, 92, 246, 0.4)',
+            }}
+          >
+            {isRecipient ? (locale === 'vi' ? 'Bên thanh toán' : 'Payer') : (locale === 'vi' ? 'Người tạo hóa đơn' : 'Issuer')}
+          </span>
+        </div>
+
         {/* Header */}
         <div className="id-header">
           <div>
@@ -449,6 +640,52 @@ export default function InvoiceDetail() {
           </div>
         )}
 
+        {/* On-Chain Receipt Badge if paid on-chain */}
+        {inv.tx_hash && (
+          <div
+            style={{
+              padding: '12px 16px',
+              background: 'rgba(93, 228, 199, 0.08)',
+              border: '1px solid rgba(93, 228, 199, 0.25)',
+              borderRadius: '10px',
+              marginBottom: 'var(--space-4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>⚡</span>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(220, 220, 240, 0.9)', display: 'block' }}>
+                  {locale === 'vi' ? 'Biên lai giao dịch On-chain Ethereum Sepolia:' : 'On-Chain Sepolia Receipt:'}
+                </span>
+                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#5DE4C7' }}>
+                  {inv.tx_hash}
+                </span>
+              </div>
+            </div>
+            <a
+              href={`https://sepolia.etherscan.io/tx/${inv.tx_hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#5DE4C7',
+                textDecoration: 'underline',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <span>{locale === 'vi' ? 'Xem trên Sepolia Etherscan ↗' : 'View on Sepolia Etherscan ↗'}</span>
+            </a>
+          </div>
+        )}
+
         {/* Payment & Lifecycle Action Buttons */}
         <div
           className="id-footer-actions"
@@ -462,54 +699,143 @@ export default function InvoiceDetail() {
           }}
         >
           {inv.status !== 'paid' ? (
-            <>
-              <button
-                className="btn btn-primary"
-                style={{ flex: 1, minWidth: '160px', padding: '10px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                onClick={() => updateInvoiceStatus('paid')}
-                disabled={processingAction}
-              >
-                <span>✓ {t('invoiceDetail.markPaid')}</span>
-              </button>
+            isRecipient ? (
+              // Actions for Recipient (Payer - Dienpham)
+              <>
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    flex: 2,
+                    minWidth: '220px',
+                    padding: '12px 18px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                    border: 'none',
+                    color: '#FFFFFF',
+                  }}
+                  onClick={handlePayOnChain}
+                  disabled={isPayingOnChain || processingAction}
+                >
+                  {isPayingOnChain ? (
+                    <span>⏳ {locale === 'vi' ? 'Đang chuyển tiền on-chain...' : 'Processing Payment...'}</span>
+                  ) : (
+                    <span>⚡ {locale === 'vi' ? 'Thanh toán On-chain (Ký ví)' : 'Pay On-Chain (1-Click)'}</span>
+                  )}
+                </button>
 
-              <button
-                className="btn"
-                style={{
-                  flex: 1,
-                  minWidth: '160px',
-                  padding: '10px 16px',
-                  background: 'rgba(139, 92, 246, 0.15)',
-                  border: '1px solid rgba(139, 92, 246, 0.35)',
-                  color: '#FFFFFF',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                }}
-                onClick={() => {
-                  toast.success(`Escrow safety vault initiated for ${inv.amount || total} ${currency}!`);
-                  updateInvoiceStatus('sent');
-                }}
-                disabled={processingAction}
-              >
-                <span>🛡️ {t('invoiceDetail.escrowDeposit')}</span>
-              </button>
+                <button
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    minWidth: '140px',
+                    padding: '10px 16px',
+                    background: 'rgba(6, 182, 212, 0.15)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                    color: '#22D3EE',
+                    fontWeight: 600,
+                  }}
+                  onClick={() => setShowQrModal(true)}
+                  disabled={isPayingOnChain || processingAction}
+                >
+                  <span>📱 {locale === 'vi' ? 'Quét QR' : 'Scan QR'}</span>
+                </button>
 
-              <button
-                className="btn"
-                style={{ padding: '10px 16px', background: 'rgba(255, 107, 122, 0.1)', border: '1px solid rgba(255, 107, 122, 0.25)', color: 'var(--color-error)', fontWeight: 600 }}
-                onClick={() => updateInvoiceStatus('cancelled')}
-                disabled={processingAction}
-              >
-                {t('invoiceDetail.cancel')}
-              </button>
-            </>
+                <button
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    minWidth: '140px',
+                    padding: '10px 16px',
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    border: '1px solid rgba(139, 92, 246, 0.35)',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                  onClick={() => {
+                    toast.success(`Escrow safety vault initiated for ${inv.amount || total} ${currency}!`);
+                    updateInvoiceStatus('sent');
+                  }}
+                  disabled={isPayingOnChain || processingAction}
+                >
+                  <span>🛡️ {t('invoiceDetail.escrowDeposit')}</span>
+                </button>
+
+                <button
+                  className="btn"
+                  style={{
+                    padding: '10px 14px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: 'rgba(220, 220, 240, 0.75)',
+                    fontSize: '11px',
+                  }}
+                  onClick={() => updateInvoiceStatus('paid')}
+                  disabled={isPayingOnChain || processingAction}
+                  title={locale === 'vi' ? 'Đã tự chuyển khoản ngoài app' : 'Mark paid manually'}
+                >
+                  <span>✓ {locale === 'vi' ? 'Đã chuyển thủ công' : 'Paid Manually'}</span>
+                </button>
+              </>
+            ) : (
+              // Actions for Creator (Payee / Seller - Luck)
+              <>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, minWidth: '160px', padding: '10px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  onClick={() => updateInvoiceStatus('paid')}
+                  disabled={processingAction}
+                >
+                  <span>✓ {locale === 'vi' ? 'Xác nhận đã nhận tiền' : 'Mark as Received / Paid'}</span>
+                </button>
+
+                <button
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    minWidth: '160px',
+                    padding: '10px 16px',
+                    background: 'rgba(6, 182, 212, 0.15)',
+                    border: '1px solid rgba(6, 182, 212, 0.35)',
+                    color: '#22D3EE',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                  }}
+                  onClick={() => {
+                    toast.success(locale === 'vi' ? `Đã gửi lời nhắc thanh toán tới ${toData.name || 'người nhận'}!` : 'Payment reminder sent!');
+                  }}
+                  disabled={processingAction}
+                >
+                  <span>🔔 {locale === 'vi' ? 'Nhắc thanh toán' : 'Send Reminder'}</span>
+                </button>
+
+                <button
+                  className="btn"
+                  style={{ padding: '10px 16px', background: 'rgba(255, 107, 122, 0.1)', border: '1px solid rgba(255, 107, 122, 0.25)', color: 'var(--color-error)', fontWeight: 600 }}
+                  onClick={() => updateInvoiceStatus('cancelled')}
+                  disabled={processingAction}
+                >
+                  {t('invoiceDetail.cancel')}
+                </button>
+              </>
+            )
           ) : (
             <div
               style={{
                 width: '100%',
-                padding: '12px',
+                padding: '16px',
                 background: 'rgba(93, 228, 199, 0.1)',
                 border: '1px solid rgba(93, 228, 199, 0.25)',
                 borderRadius: '8px',
@@ -519,7 +845,24 @@ export default function InvoiceDetail() {
                 fontSize: '13px',
               }}
             >
-              ✓ {t('invoiceDetail.settled')}
+              <div>
+                ✓ {isRecipient
+                  ? (locale === 'vi' ? 'Hóa đơn đã được bạn thanh toán thành công.' : 'You have completed payment for this invoice.')
+                  : (locale === 'vi' ? 'Hóa đơn đã được thanh toán. Bạn đã nhận được tiền.' : 'Payment received. Invoice is fully settled.')}
+              </div>
+              {inv.tx_hash && (
+                <div style={{ marginTop: '8px', fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
+                  <span>{locale === 'vi' ? 'Mã Tx: ' : 'Tx Hash: '}</span>
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${inv.tx_hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#5DE4C7', textDecoration: 'underline', fontFamily: 'monospace', fontWeight: 600 }}
+                  >
+                    {inv.tx_hash.slice(0, 10)}...{inv.tx_hash.slice(-8)} ↗
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -547,9 +890,16 @@ export default function InvoiceDetail() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>{t('invoiceDetail.scanToPay')}</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>
+              {isRecipient
+                ? (locale === 'vi' ? 'Quét mã để thanh toán' : 'Scan to Pay')
+                : (locale === 'vi' ? 'Mã QR nhận tiền của bạn' : 'Your Payment QR Code')}
+            </h3>
             <p style={{ fontSize: '12px', color: 'rgba(240, 240, 245, 0.85)', marginBottom: '16px' }}>
-              {t('invoiceDetail.amount')} <strong style={{ color: '#5DE4C7' }}>${typeof total === 'number' ? total.toFixed(2) : total} {currency}</strong>
+              {isRecipient
+                ? (locale === 'vi' ? `Thanh toán cho ${fromData.name || 'người bán'}: ` : 'Pay to issuer: ')
+                : (locale === 'vi' ? 'Số tiền yêu cầu: ' : 'Amount due: ')}
+              <strong style={{ color: '#5DE4C7' }}>${typeof total === 'number' ? total.toFixed(2) : total} {currency}</strong>
             </p>
 
             <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', display: 'inline-block', marginBottom: '16px' }}>
@@ -558,7 +908,7 @@ export default function InvoiceDetail() {
 
             <div style={{ background: 'rgba(255,255,255,0.06)', padding: '10px', borderRadius: '8px', marginBottom: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
               <span style={{ fontSize: '10px', color: 'rgba(200, 200, 220, 0.75)', display: 'block', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.05em' }}>
-                {t('invoiceDetail.recipientWallet')}
+                {locale === 'vi' ? 'Địa chỉ ví nhận tiền (Người thụ hưởng)' : 'Payout Wallet Address (Payee)'}
               </span>
               <span style={{ fontSize: '11px', color: '#FFFFFF', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                 {payWallet}

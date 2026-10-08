@@ -28,8 +28,16 @@ export default function InvoiceList() {
           email: user.email || '',
         });
         const list = res.data || [];
-        list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        setInvoices(list);
+        // Deduplicate invoices by ID
+        const uniqueMap = new Map();
+        list.forEach((item) => {
+          if (item?.id && !uniqueMap.has(item.id)) {
+            uniqueMap.set(item.id, item);
+          }
+        });
+        const uniqueList = Array.from(uniqueMap.values());
+        uniqueList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setInvoices(uniqueList);
       } catch (err) {
         console.error('Failed to load invoices from Supabase', err);
       } finally {
@@ -54,15 +62,15 @@ export default function InvoiceList() {
       toast.info('No invoices to export');
       return;
     }
-    const headers = ['ID', 'Title', 'Counterparty', 'Type', 'Amount', 'Currency', 'Status', 'Due Date', 'Created At'];
+    const headers = ['ID', 'Title', 'Counterparty', 'Role', 'Amount', 'Currency', 'Status', 'Due Date', 'Created At'];
     const rows = filteredInvoices.map((inv) => {
       const userAddr = user?.address?.toLowerCase();
       const userEmail = user?.email?.toLowerCase();
-      const isIncoming = Boolean(
+      const isRecipient = Boolean(
         (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
         (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
       );
-      const party = isIncoming
+      const party = isRecipient
         ? (inv.from_data?.name || inv.from?.name || inv.from_data?.email || inv.creator_id || 'Unknown')
         : (inv.to_data?.name || inv.to?.name || inv.to_data?.email || inv.recipient_id || 'Unknown');
 
@@ -70,7 +78,7 @@ export default function InvoiceList() {
         inv.id || '',
         `"${(inv.title || 'Invoice').replace(/"/g, '""')}"`,
         `"${party.replace(/"/g, '""')}"`,
-        isIncoming ? 'Incoming' : 'Outgoing',
+        isRecipient ? 'Payer (Received)' : 'Issuer (Sent)',
         inv.amount || inv.total || 0,
         inv.currency || 'USD',
         inv.status || 'pending',
@@ -92,7 +100,18 @@ export default function InvoiceList() {
   };
 
   const filteredInvoices = invoices.filter((inv) => {
-    if (statusFilter !== 'all' && inv.status !== statusFilter) return false;
+    const userAddr = user?.address?.toLowerCase();
+    const userEmail = user?.email?.toLowerCase();
+    const isRecipient = Boolean(
+      (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+      (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+    );
+    const isCreator = !isRecipient;
+
+    if (statusFilter === 'sent' && !isCreator) return false;
+    if (statusFilter === 'received' && !isRecipient) return false;
+    if (statusFilter !== 'all' && statusFilter !== 'sent' && statusFilter !== 'received' && inv.status !== statusFilter) return false;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const title = (inv.title || '').toLowerCase();
@@ -116,6 +135,8 @@ export default function InvoiceList() {
 
   const tabs = [
     { id: 'all', label: t('invoice.all', 'All') },
+    { id: 'sent', label: locale === 'vi' ? 'Đã tạo (Phải thu)' : 'Created (Payee)' },
+    { id: 'received', label: locale === 'vi' ? 'Cần trả (Phải trả)' : 'To Pay (Payer)' },
     { id: 'pending', label: t('invoice.pending', 'Pending') },
     { id: 'paid', label: t('invoice.paid', 'Paid') },
     { id: 'overdue', label: t('invoice.overdue', 'Overdue') },
@@ -247,12 +268,12 @@ export default function InvoiceList() {
               {filteredInvoices.map((inv) => {
                 const userAddr = user?.address?.toLowerCase();
                 const userEmail = user?.email?.toLowerCase();
-                const isIncoming = Boolean(
+                const isRecipient = Boolean(
                   (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
                   (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
                 );
-                const counterpartyName = isIncoming
-                  ? (inv.from_data?.name || inv.from?.name || (inv.creator_id ? inv.creator_id.slice(0, 6) + '...' + inv.creator_id.slice(-4) : 'Đối tác'))
+                const counterpartyName = isRecipient
+                  ? (inv.from_data?.name || inv.from?.name || (inv.creator_id ? inv.creator_id.slice(0, 6) + '...' + inv.creator_id.slice(-4) : 'Người bán'))
                   : (inv.to_data?.name || inv.to?.name || (inv.recipient_id ? inv.recipient_id.slice(0, 6) + '...' + inv.recipient_id.slice(-4) : 'Khách hàng'));
 
                 return (
@@ -268,26 +289,29 @@ export default function InvoiceList() {
                             borderRadius: '10px',
                             textTransform: 'uppercase',
                             letterSpacing: '0.04em',
-                            background: isIncoming ? 'rgba(93, 228, 199, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-                            color: isIncoming ? '#5DE4C7' : '#C4B5FD',
-                            border: isIncoming ? '1px solid rgba(93, 228, 199, 0.3)' : '1px solid rgba(139, 92, 246, 0.3)',
+                            background: isRecipient ? 'rgba(245, 158, 11, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+                            color: isRecipient ? '#FBBF24' : '#C4B5FD',
+                            border: isRecipient ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(139, 92, 246, 0.3)',
                           }}
                         >
-                          {isIncoming ? (locale === 'vi' ? 'Nhận' : 'In') : (locale === 'vi' ? 'Gửi' : 'Out')}
+                          {isRecipient ? (locale === 'vi' ? 'Cần trả' : 'Payer') : (locale === 'vi' ? 'Đã tạo' : 'Issuer')}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
                         <span className="invoice-item-date">{new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US')}</span>
-                        <span className="invoice-item-recipient" style={{ color: isIncoming ? 'rgba(93, 228, 199, 0.9)' : 'rgba(200, 200, 220, 0.7)' }}>
-                          {isIncoming ? '← ' : '→ '}
-                          {isIncoming ? (locale === 'vi' ? 'Từ: ' : 'From: ') : (locale === 'vi' ? 'Đến: ' : 'To: ')}
+                        <span className="invoice-item-recipient" style={{ color: isRecipient ? 'rgba(251, 191, 36, 0.9)' : 'rgba(200, 200, 220, 0.7)' }}>
+                          {isRecipient ? '← ' : '→ '}
+                          {isRecipient ? (locale === 'vi' ? 'Từ: ' : 'From: ') : (locale === 'vi' ? 'Đến: ' : 'To: ')}
                           {counterpartyName}
                         </span>
                       </div>
                     </div>
                     <div className="invoice-item-right">
-                      <span className="invoice-item-amount">
-                        ${inv.amount || inv.total} {inv.currency || 'USD'}
+                      <span
+                        className="invoice-item-amount"
+                        style={{ color: isRecipient ? '#F87171' : '#5DE4C7' }}
+                      >
+                        {isRecipient ? '-' : '+'}${inv.amount || inv.total} {inv.currency || 'USD'}
                       </span>
                       <span className={`invoice-item-status status-${inv.status}`}>
                         {statusLabel(inv.status)}

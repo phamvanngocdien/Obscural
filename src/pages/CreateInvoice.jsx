@@ -30,6 +30,7 @@ export default function CreateInvoice() {
     locale === 'vi' ? 'Cảm ơn quý khách! Vui lòng thanh toán theo thời hạn đã thỏa thuận.' : 'Thank you for your business!'
   );
   const [recentContacts, setRecentContacts] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load profile from Supabase for this user account
   useEffect(() => {
@@ -223,6 +224,8 @@ export default function CreateInvoice() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (isSubmitting) return;
+
     if (!to.name) {
       toast.error('Please enter a recipient name');
       return;
@@ -235,8 +238,9 @@ export default function CreateInvoice() {
 
     const dueDate = dueYear && dueMonth && dueDay ? `${dueYear}-${dueMonth.padStart(2, '0')}-${dueDay.padStart(2, '0')}` : '';
 
+    const invoiceId = crypto.randomUUID();
     const invoice = {
-      id: crypto.randomUUID(),
+      id: invoiceId,
       title: items[0]?.description || 'Invoice',
       from: {
         name: from.name || 'You',
@@ -280,8 +284,10 @@ export default function CreateInvoice() {
     const creatorId = user?.address || user?.email || 'anonymous';
     const recipientId = to.walletAddress || to.email || to.name || '';
 
+    setIsSubmitting(true);
     try {
       await api.invoiceApi.create({
+        id: invoiceId,
         creator_id: creatorId,
         recipient_id: recipientId,
         amount: invoice.total,
@@ -304,6 +310,8 @@ export default function CreateInvoice() {
     } catch (err) {
       console.error('Failed to create invoice:', err);
       toast.error(locale === 'vi' ? `Lỗi tạo hóa đơn: ${err.message || 'Không thể lưu lên hệ thống'}` : `Failed to create invoice: ${err.message || 'Server error'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -569,12 +577,27 @@ export default function CreateInvoice() {
 
         {/* Action Button */}
         <div className="ci-actions">
-          <button className="ci-create-btn" onClick={handleSubmit} type="button">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-            <span>{t('create.submit', 'Create & Issue Invoice')}</span>
+          <button
+            className="ci-create-btn"
+            onClick={handleSubmit}
+            type="button"
+            disabled={isSubmitting}
+            style={{
+              opacity: isSubmitting ? 0.7 : 1,
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isSubmitting ? (
+              <span>{locale === 'vi' ? 'Đang tạo hóa đơn...' : 'Creating Invoice...'}</span>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+                <span>{t('create.submit', 'Create & Issue Invoice')}</span>
+              </>
+            )}
           </button>
         </div>
       </div>
