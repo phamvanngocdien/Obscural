@@ -3,6 +3,7 @@ import { Chart, registerables } from 'chart.js';
 import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
+import { fetchLiveEthPrice, getInvoiceUsdcValue, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/Analytics.css';
 
 Chart.register(...registerables);
@@ -14,11 +15,18 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [timeRange, setTimeRange] = useState('all_time');
+  const [ethPrice, setEthPrice] = useState(2480);
 
   const lineChartRef = useRef(null);
   const donutChartRef = useRef(null);
   const lineInstanceRef = useRef(null);
   const donutInstanceRef = useRef(null);
+
+  useEffect(() => {
+    fetchLiveEthPrice().then((p) => {
+      if (p > 0) setEthPrice(p);
+    });
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,18 +56,18 @@ export default function Analytics() {
     return () => controller.abort();
   }, [user?.address, user?.email]);
 
-  // Compute calculated financial telemetry
+  // Compute calculated financial telemetry in USDC
   const totalInvoices = invoices.length;
-  const totalVolume = invoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+  const totalVolume = invoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
   
   const paidInvoices = invoices.filter(i => i.status === 'paid');
-  const totalPaid = paidInvoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+  const totalPaid = paidInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
 
   const pendingInvoices = invoices.filter(i => i.status === 'pending');
-  const totalPending = pendingInvoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+  const totalPending = pendingInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
 
   const overdueInvoices = invoices.filter(i => i.status === 'overdue');
-  const totalOverdue = overdueInvoices.reduce((acc, inv) => acc + parseFloat(inv.amount || 0), 0);
+  const totalOverdue = overdueInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
 
   const settlementRate = totalInvoices > 0 ? ((paidInvoices.length / totalInvoices) * 100).toFixed(1) : '100.0';
 
@@ -73,7 +81,7 @@ export default function Analytics() {
     invoices.forEach((inv) => {
       const date = inv.created_at ? new Date(inv.created_at) : new Date();
       const m = date.getMonth();
-      monthlyTotals[m] += parseFloat(inv.amount || 0);
+      monthlyTotals[m] += getInvoiceUsdcValue(inv, ethPrice);
     });
 
     const maxMonthlyVal = Math.max(...monthlyTotals, 0);
@@ -118,7 +126,7 @@ export default function Analytics() {
             padding: 10,
             boxPadding: 4,
             callbacks: {
-              label: (context) => ` Invoiced: $${context.raw.toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+              label: (context) => ` Invoiced: ${context.raw.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`,
             },
           },
         },
@@ -135,8 +143,8 @@ export default function Analytics() {
               color: 'rgba(160, 160, 200, 0.55)',
               font: { size: 11, family: 'JetBrains Mono' },
               callback: (v) => {
-                if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`;
-                return `$${v}`;
+                if (v >= 1000) return `${(v / 1000).toFixed(1)}k USDC`;
+                return `${v} USDC`;
               },
             },
           },
@@ -262,10 +270,10 @@ export default function Analytics() {
             <span className="analytics-stat-chip chip-purple">{totalInvoices} {t('analytics.invoices')}</span>
           </div>
           <div className="analytics-stat-num-wrap">
-            <span className="analytics-stat-symbol">$</span>
             <span className="analytics-stat-num">
               {totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#8B7AFF', marginLeft: '6px' }}>USDC</span>
           </div>
           <span className="analytics-stat-footnote">{t('analytics.grossInvoiced')}</span>
         </div>
@@ -276,10 +284,10 @@ export default function Analytics() {
             <span className="analytics-stat-chip chip-green">{t('invoice.paid')}</span>
           </div>
           <div className="analytics-stat-num-wrap">
-            <span className="analytics-stat-symbol">$</span>
             <span className="analytics-stat-num stat-success">
               {totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#5DE4C7', marginLeft: '6px' }}>USDC</span>
           </div>
           <span className="analytics-stat-footnote">{paidInvoices.length} {t('analytics.txCompleted')}</span>
         </div>
@@ -290,10 +298,10 @@ export default function Analytics() {
             <span className="analytics-stat-chip chip-amber">{pendingInvoices.length} {t('invoice.pending')}</span>
           </div>
           <div className="analytics-stat-num-wrap">
-            <span className="analytics-stat-symbol">$</span>
             <span className="analytics-stat-num stat-warning">
               {totalPending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#FBBF24', marginLeft: '6px' }}>USDC</span>
           </div>
           <span className="analytics-stat-footnote">{t('analytics.awaitingRelease')}</span>
         </div>
@@ -454,7 +462,18 @@ export default function Analytics() {
                       </td>
                       <td>
                         <span className="amount-cell">
-                          ${amountNum.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {(() => {
+                            const display = formatInvoiceDisplay(inv, ethPrice);
+                            if (display.cryptoStr) {
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                                  <span style={{ fontWeight: 700, color: '#FFFFFF' }}>{display.usdcStr}</span>
+                                  <span style={{ fontSize: '10px', color: '#8B7AFF', fontWeight: 600 }}>({display.cryptoStr})</span>
+                                </div>
+                              );
+                            }
+                            return <span style={{ fontWeight: 700, color: '#FFFFFF' }}>{display.usdcStr}</span>;
+                          })()}
                         </span>
                       </td>
                       <td>

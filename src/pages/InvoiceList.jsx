@@ -4,6 +4,7 @@ import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
 import { toast } from '../components/common';
+import { fetchLiveEthPrice, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/InvoiceList.css';
 
 export default function InvoiceList() {
@@ -13,6 +14,13 @@ export default function InvoiceList() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [ethPrice, setEthPrice] = useState(2480);
+
+  useEffect(() => {
+    fetchLiveEthPrice().then((p) => {
+      if (p > 0) setEthPrice(p);
+    });
+  }, []);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -307,12 +315,24 @@ export default function InvoiceList() {
                       </div>
                     </div>
                     <div className="invoice-item-right">
-                      <span
-                        className="invoice-item-amount"
-                        style={{ color: isRecipient ? '#F87171' : '#5DE4C7' }}
-                      >
-                        {isRecipient ? '-' : '+'}${inv.amount || inv.total} {inv.currency || 'USD'}
-                      </span>
+                      {(() => {
+                        const display = formatInvoiceDisplay(inv, ethPrice);
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px' }}>
+                            <span
+                              className="invoice-item-amount"
+                              style={{ color: isRecipient ? '#F87171' : '#5DE4C7' }}
+                            >
+                              {isRecipient ? '-' : '+'}{display.usdcStr}
+                            </span>
+                            {display.cryptoStr && (
+                              <span style={{ fontSize: '10px', color: isRecipient ? 'rgba(248, 113, 113, 0.75)' : '#8B7AFF', fontWeight: 600 }}>
+                                ({display.cryptoStr})
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       <span className={`invoice-item-status status-${inv.status}`}>
                         {statusLabel(inv.status)}
                       </span>

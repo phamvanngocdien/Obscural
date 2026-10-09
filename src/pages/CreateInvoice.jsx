@@ -4,6 +4,8 @@ import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api, { contactsApi, profilesApi } from '../services/api';
 import { toast } from '../components/common';
+import TokenSelector from '../components/common/TokenSelector';
+import { fetchLiveEthPrice } from '../utils/currency';
 import '../styles/CreateInvoice.css';
 
 export default function CreateInvoice() {
@@ -25,12 +27,20 @@ export default function CreateInvoice() {
   const [dueYear, setDueYear] = useState('');
   const [items, setItems] = useState([{ description: 'Service', quantity: 1, price: '' }]);
   const [taxPercent, setTaxPercent] = useState(5);
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('USDC');
+  const [ethPrice, setEthPrice] = useState(2480);
   const [note, setNote] = useState(
     locale === 'vi' ? 'Cảm ơn quý khách! Vui lòng thanh toán theo thời hạn đã thỏa thuận.' : 'Thank you for your business!'
   );
   const [recentContacts, setRecentContacts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch live ETH price
+  useEffect(() => {
+    fetchLiveEthPrice().then((p) => {
+      if (p > 0) setEthPrice(p);
+    });
+  }, []);
 
   // Load profile from Supabase for this user account
   useEffect(() => {
@@ -270,9 +280,8 @@ export default function CreateInvoice() {
       items,
       taxPercent: parseFloat(taxPercent) || 0,
       subtotal,
-      taxAmount,
       total,
-      amount: String(total),
+      amount: currency === 'ETH' ? String(parseFloat((total / (ethPrice || 2480)).toFixed(6))) : String(total),
       currency,
       dueDate,
       status: 'pending',
@@ -406,18 +415,8 @@ export default function CreateInvoice() {
               </select>
             </div>
 
-            <h3 className="ci-section-label" style={{ marginTop: '14px' }}>{t('create.currency', 'Currency / Settlement Token')}:</h3>
-            <select
-              className="ci-select"
-              style={{ width: '100%' }}
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-            >
-              <option value="USD">💵 USD (Fiat Pegged)</option>
-              <option value="ETH">⟠ ETH (Ethereum / Rialo)</option>
-              <option value="USDC">💲 USDC (USD Coin)</option>
-              <option value="DAI">◈ DAI (Decentralized USD)</option>
-            </select>
+            <h3 className="ci-section-label" style={{ marginTop: '14px' }}>{t('create.currency', 'Settlement Token')}:</h3>
+            <TokenSelector value={currency} onChange={setCurrency} ethPrice={ethPrice} />
           </div>
         </div>
 
@@ -490,7 +489,7 @@ export default function CreateInvoice() {
           <div className="ci-items-header">
             <span className="ci-items-col-item">{t('create.itemDesc', 'Item / Service')}:</span>
             <span className="ci-items-col-qty">{t('create.itemQty', 'Quantity')}:</span>
-            <span className="ci-items-col-price">{t('create.itemPrice', 'Unit Price')} ({currency}):</span>
+            <span className="ci-items-col-price">{t('create.itemPrice', 'Unit Price')} (USDC):</span>
             <span className="ci-items-col-action"></span>
           </div>
           {items.map((item, i) => (
@@ -519,8 +518,8 @@ export default function CreateInvoice() {
                 </button>
               </div>
               <div className="ci-item-price-wrap">
-                <span className="ci-item-price-prefix">
-                  {currency === 'USD' ? '$' : currency === 'ETH' ? 'Ξ' : ''}
+                <span className="ci-item-price-prefix" style={{ fontSize: '10px', color: '#8B7AFF', fontWeight: 700 }}>
+                  USDC
                 </span>
                 <input
                   className="ci-input ci-item-price"
@@ -563,7 +562,7 @@ export default function CreateInvoice() {
         <div className="ci-summary-wrap">
           <div className="ci-summary-row">
             <span className="ci-summary-label">{t('create.subtotal', 'Subtotal')}:</span>
-            <span className="ci-summary-val">${subtotal.toFixed(2)} {currency}</span>
+            <span className="ci-summary-val">{subtotal.toFixed(2)} USDC</span>
           </div>
           <div className="ci-summary-row">
             <div className="ci-tax-label-group">
@@ -580,11 +579,39 @@ export default function CreateInvoice() {
                 <span className="ci-tax-sign">%</span>
               </div>
             </div>
-            <span className="ci-summary-val">${taxAmount.toFixed(2)} {currency}</span>
+            <span className="ci-summary-val">{taxAmount.toFixed(2)} USDC</span>
           </div>
           <div className="ci-summary-row ci-summary-total">
             <span className="ci-total-label">{t('create.totalDue', 'Total Due:')}</span>
-            <span className="ci-total-val">${total.toFixed(2)} {currency}</span>
+            {(() => {
+              if (currency === 'ETH') {
+                const ethAmount = ethPrice > 0 ? (total / ethPrice).toFixed(4) : '0.00';
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+                    <span className="ci-total-val">
+                      {total.toFixed(2)} USDC{' '}
+                      <span style={{ fontSize: '14px', color: '#8B7AFF', fontWeight: 600 }}>
+                        ({ethAmount} ETH)
+                      </span>
+                    </span>
+                    <span style={{ fontSize: '10px', color: 'rgba(169, 174, 197, 0.65)' }}>
+                      1 ETH ≈ ${ethPrice.toLocaleString()}
+                    </span>
+                  </div>
+                );
+              }
+              if (currency === 'USDT' || currency === 'DAI') {
+                return (
+                  <span className="ci-total-val">
+                    {total.toFixed(2)} USDC{' '}
+                    <span style={{ fontSize: '13px', color: '#5DE4C7', fontWeight: 600 }}>
+                      ({total.toFixed(2)} {currency})
+                    </span>
+                  </span>
+                );
+              }
+              return <span className="ci-total-val">{total.toFixed(2)} USDC</span>;
+            })()}
           </div>
         </div>
 

@@ -1,0 +1,302 @@
+/* ========================================
+   TokenSelector — Web3 Settlement Token Dropdown
+   ======================================== */
+
+.token-selector-wrap {
+  position: relative;
+  width: 100%;
+  font-family: var(--font-primary, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif);
+  z-index: 20;
+}
+
+/* ── Trigger Box ── */
+.token-selector-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(18, 20, 36, 0.85);
+  border: 1px solid rgba(139, 122, 255, 0.22);
+  border-radius: 12px;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  text-align: left;
+}
+
+.token-selector-trigger:hover {
+  background: rgba(26, 29, 52, 0.95);
+  border-color: rgba(139, 122, 255, 0.45);
+  box-shadow: 0 6px 20px rgba(139, 122, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.token-selector-trigger.active {
+  background: rgba(28, 31, 56, 1);
+  border-color: #8B7AFF;
+  box-shadow: 0 0 0 2px rgba(139, 122, 255, 0.25), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.token-trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.token-trigger-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.token-selector-trigger:hover .token-trigger-icon-box {
+  transform: scale(1.05);
+}
+
+.token-trigger-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.token-trigger-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.token-trigger-symbol {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #FFFFFF;
+}
+
+.token-badge-pill {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid;
+  line-height: 1;
+}
+
+.token-trigger-name {
+  font-size: 11px;
+  color: rgba(169, 174, 197, 0.75);
+}
+
+.token-trigger-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.token-trigger-rate {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: #5DE4C7;
+  background: rgba(93, 228, 199, 0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(93, 228, 199, 0.25);
+}
+
+.token-chevron {
+  color: rgba(169, 174, 197, 0.7);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.token-chevron.rotate {
+  transform: rotate(180deg);
+  color: #8B7AFF;
+}
+
+/* ── Dropdown Menu ── */
+.token-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: rgba(14, 16, 30, 0.96);
+  border: 1px solid rgba(139, 122, 255, 0.3);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(139, 122, 255, 0.12);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  overflow: hidden;
+  z-index: 50;
+  animation: tokenDropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tokenDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.token-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(169, 174, 197, 0.65);
+}
+
+.token-header-note {
+  font-size: 9px;
+  color: #5DE4C7;
+  letter-spacing: 0.05em;
+}
+
+.token-dropdown-list {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Scrollbar styling */
+.token-dropdown-list::-webkit-scrollbar {
+  width: 4px;
+}
+.token-dropdown-list::-webkit-scrollbar-thumb {
+  background: rgba(139, 122, 255, 0.3);
+  border-radius: 4px;
+}
+
+.token-item-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.token-item-btn:hover {
+  background: rgba(139, 122, 255, 0.09);
+  border-color: rgba(139, 122, 255, 0.25);
+  transform: translateX(2px);
+}
+
+.token-item-btn.selected {
+  background: rgba(139, 122, 255, 0.16);
+  border-color: rgba(139, 122, 255, 0.4);
+}
+
+.token-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.token-item-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.token-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.token-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.token-item-symbol {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.token-item-name {
+  font-size: 11px;
+  color: rgba(169, 174, 197, 0.7);
+}
+
+.token-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.token-item-rate {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: #5DE4C7;
+}
+
+.token-item-peg {
+  font-size: 10px;
+  color: rgba(169, 174, 197, 0.55);
+}
+
+.token-selected-check {
+  color: #5DE4C7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(93, 228, 199, 0.15);
+}
+
+.token-dropdown-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  color: rgba(169, 174, 197, 0.6);
+  line-height: 1.4;
+}
+
+.token-dropdown-footer svg {
+  flex-shrink: 0;
+  color: #8B7AFF;
+}

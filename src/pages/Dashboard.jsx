@@ -4,6 +4,7 @@ import { toast } from '../components/common';
 import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
+import { fetchLiveEthPrice, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/Dashboard.css';
 
 const statusColors = {
@@ -71,7 +72,7 @@ export default function Dashboard() {
     fetchData();
   }, [user?.address, user?.email]);
 
-  // Build activity from invoices
+  // Build activity from invoices with USDC denomination & crypto equivalent
   const activities = invoices.slice(0, 10).map((inv) => {
     const userAddr = user?.address?.toLowerCase();
     const userEmail = user?.email?.toLowerCase();
@@ -86,16 +87,20 @@ export default function Dashboard() {
       ? (inv.from_data?.name || inv.from?.name || inv.from_data?.email || inv.creator_id)
       : (inv.to_data?.name || inv.to?.name || inv.to_data?.email || inv.recipient_id);
     const name = counterParty ? (counterParty.startsWith('0x') ? counterParty.slice(0, 8) : counterParty) : 'Unknown';
-    const amount = parseFloat(inv.amount || inv.total || 0);
     const date = new Date(inv.created_at);
     const dateStr = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} / ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+
+    const display = formatInvoiceDisplay(inv, ethPrice);
+    const amountStr = display.cryptoStr
+      ? `${isIncome ? '+' : '-'}${display.usdcStr} (${display.cryptoStr})`
+      : `${isIncome ? '+' : '-'}${display.usdcStr}`;
 
     return {
       id: inv.id,
       name,
       initial: name.charAt(0).toUpperCase(),
       date: dateStr,
-      amount: `${isIncome ? '+' : '-'}${amount} ${inv.currency || 'USD'}`,
+      amount: amountStr,
       status: inv.status === 'paid' ? 'Success' : inv.status === 'overdue' ? 'Failed' : 'Pending',
       statusKey: inv.status === 'paid' ? 'success' : inv.status === 'overdue' ? 'failed' : 'pending',
       isIncome,

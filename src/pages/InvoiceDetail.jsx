@@ -8,6 +8,7 @@ import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import useWallet from '../hooks/useWallet';
 import api from '../services/api';
+import { fetchLiveEthPrice, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/InvoiceList.css';
 
 export default function InvoiceDetail() {
@@ -23,15 +24,12 @@ export default function InvoiceDetail() {
   const [copied, setCopied] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
   const [isPayingOnChain, setIsPayingOnChain] = useState(false);
-  const [ethPrice, setEthPrice] = useState(2600);
+  const [ethPrice, setEthPrice] = useState(2480);
 
   useEffect(() => {
-    fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.ethereum?.usd) setEthPrice(data.ethereum.usd);
-      })
-      .catch(() => {});
+    fetchLiveEthPrice().then((p) => {
+      if (p > 0) setEthPrice(p);
+    });
   }, []);
 
   useEffect(() => {
@@ -618,15 +616,26 @@ export default function InvoiceDetail() {
         <div className="id-summary">
           <div className="id-summary-row">
             <span>{t('invoiceDetail.subtotal')}</span>
-            <span>${subtotal.toFixed ? subtotal.toFixed(2) : subtotal}</span>
+            <span>{subtotal.toFixed ? subtotal.toFixed(2) : subtotal} USDC</span>
           </div>
           <div className="id-summary-row">
             <span>{t('invoiceDetail.tax')} ({inv.taxPercent || 0}%):</span>
-            <span>${taxAmount.toFixed ? taxAmount.toFixed(2) : taxAmount}</span>
+            <span>{taxAmount.toFixed ? taxAmount.toFixed(2) : taxAmount} USDC</span>
           </div>
           <div className="id-summary-row id-summary-total">
             <span>{t('invoiceDetail.total')}:</span>
-            <span>${typeof total === 'number' ? total.toFixed(2) : total} {currency}</span>
+            {(() => {
+              const display = formatInvoiceDisplay(inv, ethPrice);
+              if (display.cryptoStr) {
+                return (
+                  <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
+                    <span style={{ fontWeight: 800 }}>{display.usdcStr}</span>
+                    <span style={{ fontSize: '13px', color: '#8B7AFF', fontWeight: 600 }}>({display.cryptoStr})</span>
+                  </span>
+                );
+              }
+              return <span>{display.usdcStr}</span>;
+            })()}
           </div>
         </div>
 
