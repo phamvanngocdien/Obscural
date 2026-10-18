@@ -1,21 +1,51 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { Chart, registerables } from 'chart.js';
 import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
+import { toast } from '../components/common';
 import { fetchLiveTokenPrices, getInvoiceUsdcValue, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/Analytics.css';
 
 Chart.register(...registerables);
 
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #7C3AED, #3B82F6)',
+  'linear-gradient(135deg, #059669, #10B981)',
+  'linear-gradient(135deg, #D97706, #F59E0B)',
+  'linear-gradient(135deg, #DC2626, #EF4444)',
+  'linear-gradient(135deg, #4F46E5, #06B6D4)',
+  'linear-gradient(135deg, #9333EA, #EC4899)',
+  'linear-gradient(135deg, #2563EB, #38BDF8)',
+  'linear-gradient(135deg, #F59E0B, #EF4444)',
+  'linear-gradient(135deg, #EC4899, #8B5CF6)',
+  'linear-gradient(135deg, #10B981, #06B6D4)',
+];
+
+function getAvatarGradient(name = '') {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+}
+
 export default function Analytics() {
   const { user } = useAuthStore();
   const { t, locale } = useI18nStore();
   const [invoices, setInvoices] = useState([]);
+  const [contactsMap, setContactsMap] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [timeRange, setTimeRange] = useState('all_time');
   const [tokenPrices, setTokenPrices] = useState({});
+
+  // Floating Counterparty Hover Card Popover
+  const [hoverPopover, setHoverPopover] = useState(null);
+  const [copiedAddr, setCopiedAddr] = useState(false);
+  const hideTimerRef = useRef(null);
 
   const lineChartRef = useRef(null);
   const donutChartRef = useRef(null);
@@ -38,13 +68,28 @@ export default function Analytics() {
       }
       try {
         setLoading(true);
-        const res = await api.invoiceApi.list({
-          userId: user.address || '',
-          email: user.email || '',
-        });
-        const list = res.data || [];
-        list.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
-        setInvoices(list);
+        const [invoicesRes, contactsRes] = await Promise.allSettled([
+          api.invoiceApi.list({
+            userId: user.address || '',
+            email: user.email || '',
+          }),
+          user.address ? api.contactsApi.list(user.address) : Promise.resolve({ data: [] }),
+        ]);
+
+        if (invoicesRes.status === 'fulfilled') {
+          const list = invoicesRes.value?.data || [];
+          list.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
+          setInvoices(list);
+        }
+
+        if (contactsRes.status === 'fulfilled') {
+          const cMap = new Map();
+          (contactsRes.value?.data || []).forEach((c) => {
+            if (c.wallet_address) cMap.set(c.wallet_address.toLowerCase().trim(), c);
+            if (c.email) cMap.set(c.email.toLowerCase().trim(), c);
+          });
+          setContactsMap(cMap);
+        }
       } catch (err) {
         console.error('Failed to load analytics data from Supabase', err);
       } finally {
@@ -205,6 +250,124 @@ export default function Analytics() {
       case 'draft': return t('invoice.draft');
       default: return status ? status.toUpperCase() : t('invoice.pending');
     }
+  };
+
+  // Helper to extract counterparty profile from invoice & contacts map
+  const getCounterpartyInfo = (inv) => {
+    const userAddr = user?.address?.toLowerCase();
+    const userEmail = user?.email?.toLowerCase();
+    const isRecipient = Boolean(
+      (userAddr && (inv.recipient_id?.toLowerCase() === userAddr || inv.to_data?.walletAddress?.toLowerCase() === userAddr)) ||
+      (userEmail && inv.to_data?.email?.toLowerCase() === userEmail)
+    );
+
+    const counterData = isRecipient
+      ? (inv.from_data || inv.from || {})
+      : (inv.to_data || inv.to || {});
+
+    const wallet = isRecipient
+      ? (counterData.walletAddress || (inv.creator_id?.startsWith('0x') ? inv.creator_id : ''))
+      : (counterData.walletAddress || (inv.recipient_id?.startsWith('0x') ? inv.recipient_id : ''));
+
+    const rawId = isRecipient ? inv.creator_id : inv.recipient_id;
+    const finalWallet = wallet || (rawId?.startsWith('0x') ? rawId : '');
+    const email = counterData.email || (!rawId?.startsWith('0x') && rawId?.includes('@') ? rawId : '');
+    const address = counterData.address || counterData.home_address || '';
+
+    // Check in saved contacts map
+    const savedContact =
+      (finalWallet ? contactsMap.get(finalWallet.toLowerCase().trim()) : null) ||
+      (email ? contactsMap.get(email.toLowerCase().trim()) : null) ||
+      null;
+
+    const displayName =
+      savedContact?.name ||
+      counterData.name ||
+      (!finalWallet && email ? email.split('@')[0] : null) ||
+      (finalWallet ? `${finalWallet.slice(0, 6)}...${finalWallet.slice(-4)}` : (rawId || (locale === 'vi' ? 'Đối tác On-Chain' : 'On-Chain Partner')));
+
+    return {
+      isRecipient,
+      roleLabel: isRecipient
+        ? (locale === 'vi' ? 'Bên xuất hóa đơn (Người bán)' : 'Issuer (Seller)')
+        : (locale === 'vi' ? 'Bên thanh toán (Khách hàng)' : 'Client (Payer)'),
+      displayName,
+      wallet: finalWallet,
+      email: savedContact?.email || email,
+      location: savedContact?.home_address || address,
+      company: savedContact?.company || counterData.company || null,
+      notes: savedContact?.notes || null,
+      savedContact,
+    };
+  };
+
+  const getCounterpartyStats = (wallet, email) => {
+    const w = (wallet || '').toLowerCase().trim();
+    const em = (email || '').toLowerCase().trim();
+    if (!w && !em) return { count: 1, totalUsdc: 0 };
+
+    const matching = invoices.filter((i) => {
+      const cId = (i.creator_id || '').toLowerCase();
+      const rId = (i.recipient_id || '').toLowerCase();
+      const fromW = (i.from_data?.walletAddress || '').toLowerCase();
+      const toW = (i.to_data?.walletAddress || '').toLowerCase();
+      const fromEm = (i.from_data?.email || '').toLowerCase();
+      const toEm = (i.to_data?.email || '').toLowerCase();
+
+      return (
+        (w && (cId === w || rId === w || fromW === w || toW === w)) ||
+        (em && (fromEm === em || toEm === em))
+      );
+    });
+
+    const totalUsdc = matching.reduce((sum, inv) => sum + getInvoiceUsdcValue(inv, tokenPrices), 0);
+    return {
+      count: matching.length,
+      totalUsdc,
+    };
+  };
+
+  const handleCounterpartyMouseEnter = (e, party) => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const popWidth = 330;
+    let x = rect.left;
+    if (x + popWidth > window.innerWidth - 16) {
+      x = window.innerWidth - popWidth - 16;
+    }
+    if (x < 12) x = 12;
+
+    let y = rect.bottom + 8;
+    if (y + 320 > window.innerHeight) {
+      y = Math.max(12, rect.top - 330);
+    }
+
+    const stats = getCounterpartyStats(party.wallet, party.email);
+
+    setHoverPopover({
+      party,
+      stats,
+      x,
+      y,
+    });
+  };
+
+  const handleMouseLeavePopover = () => {
+    hideTimerRef.current = setTimeout(() => {
+      setHoverPopover(null);
+    }, 150);
+  };
+
+  const handlePopoverMouseEnter = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+  };
+
+  const copyAddressToClipboard = (addr) => {
+    if (!addr) return;
+    navigator.clipboard.writeText(addr);
+    setCopiedAddr(true);
+    toast.success(locale === 'vi' ? 'Đã sao chép địa chỉ ví!' : 'Wallet address copied!');
+    setTimeout(() => setCopiedAddr(false), 1800);
   };
 
   // Tab Filtering
@@ -437,21 +600,47 @@ export default function Analytics() {
               ) : (
                 filteredInvoices.map((inv) => {
                   const displayId = inv.id ? (inv.id.length > 12 ? `${inv.id.slice(0, 8)}...` : inv.id) : 'INV-001';
-                  const recipient = inv.recipient_id || inv.to_name || '—';
-                  const formattedRecipient = recipient.length > 14 ? `${recipient.slice(0, 6)}...${recipient.slice(-4)}` : recipient;
                   const dateStr = inv.created_at ? new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : (locale === 'vi' ? 'Hôm nay' : 'Today');
                   const dueStr = inv.due_date ? new Date(inv.due_date).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : '—';
-                  const amountNum = parseFloat(inv.amount || 0);
+                  const party = getCounterpartyInfo(inv);
 
                   return (
                     <tr key={inv.id || Math.random()}>
                       <td>
-                        <span className="invoice-id-badge">{inv.title || `INV-${displayId}`}</span>
+                        <Link
+                          to={`/invoices/${inv.id}`}
+                          className="invoice-id-badge"
+                          style={{ textDecoration: 'none', color: 'inherit' }}
+                          title={locale === 'vi' ? 'Xem chi tiết hóa đơn' : 'View invoice details'}
+                        >
+                          {inv.title || `INV-${displayId}`}
+                        </Link>
                       </td>
-                      <td>
-                        <div className="counterparty-cell">
-                          <span className="counterparty-dot" />
-                          <span className="counterparty-addr">{formattedRecipient}</span>
+                      <td
+                        className="analytics-cell-counterparty"
+                        onMouseEnter={(e) => handleCounterpartyMouseEnter(e, party)}
+                        onMouseLeave={handleMouseLeavePopover}
+                      >
+                        <div className="analytics-counterparty-badge-box">
+                          <div
+                            className="analytics-counterparty-avatar-mini"
+                            style={{ background: getAvatarGradient(party.displayName) }}
+                          >
+                            {party.displayName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="analytics-counterparty-text-wrap">
+                            <div className="analytics-counterparty-name-row">
+                              <span className="analytics-counterparty-name-main">{party.displayName}</span>
+                              {party.savedContact && (
+                                <span className="analytics-contact-tag-pill" title={locale === 'vi' ? 'Đã lưu trong danh bạ' : 'Saved in Contacts'}>
+                                  ✓
+                                </span>
+                              )}
+                            </div>
+                            <span className="analytics-counterparty-addr-sub">
+                              {party.wallet ? `${party.wallet.slice(0, 6)}...${party.wallet.slice(-4)}` : (party.email || '—')}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td>
@@ -489,6 +678,143 @@ export default function Analytics() {
           </table>
         </div>
       </div>
+
+      {/* ── Floating Counterparty Contact Card Popover ── */}
+      {hoverPopover && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="analytics-popover-portal-container"
+            style={{
+              position: 'fixed',
+              left: `${hoverPopover.x}px`,
+              top: `${hoverPopover.y}px`,
+              zIndex: 99999,
+            }}
+            onMouseEnter={handlePopoverMouseEnter}
+            onMouseLeave={handleMouseLeavePopover}
+          >
+            <div className="analytics-hover-card">
+              {/* Header */}
+              <div className="analytics-popover-header">
+                <div
+                  className="analytics-popover-avatar"
+                  style={{ background: getAvatarGradient(hoverPopover.party.displayName) }}
+                >
+                  {hoverPopover.party.displayName.charAt(0).toUpperCase()}
+                </div>
+                <div className="analytics-popover-title-box">
+                  <div className="analytics-popover-name-row">
+                    <span className="analytics-popover-fullname">{hoverPopover.party.displayName}</span>
+                    <span className={`analytics-popover-type-badge ${hoverPopover.party.savedContact ? 'saved' : 'counterparty'}`}>
+                      {hoverPopover.party.savedContact
+                        ? (locale === 'vi' ? '✓ Danh bạ' : '✓ Saved Contact')
+                        : (locale === 'vi' ? 'Đối tác On-Chain' : 'Counterparty')}
+                    </span>
+                  </div>
+                  {hoverPopover.party.company && (
+                    <span className="analytics-popover-company">🏢 {hoverPopover.party.company}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="analytics-popover-body">
+                {hoverPopover.party.wallet && (
+                  <div className="analytics-popover-row">
+                    <span className="analytics-popover-icon">👛</span>
+                    <div className="analytics-popover-row-content">
+                      <span className="analytics-popover-label">{locale === 'vi' ? 'Địa chỉ ví' : 'Wallet Address'}</span>
+                      <div className="analytics-popover-copy-row">
+                        <code className="analytics-popover-code">{hoverPopover.party.wallet}</code>
+                        <button
+                          type="button"
+                          className="analytics-popover-copy-btn"
+                          onClick={() => copyAddressToClipboard(hoverPopover.party.wallet)}
+                          title="Copy Address"
+                        >
+                          {copiedAddr ? '✓' : '⧉'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {hoverPopover.party.email && (
+                  <div className="analytics-popover-row">
+                    <span className="analytics-popover-icon">✉️</span>
+                    <div className="analytics-popover-row-content">
+                      <span className="analytics-popover-label">Email</span>
+                      <span className="analytics-popover-val">{hoverPopover.party.email}</span>
+                    </div>
+                  </div>
+                )}
+
+                {hoverPopover.party.location && (
+                  <div className="analytics-popover-row">
+                    <span className="analytics-popover-icon">📍</span>
+                    <div className="analytics-popover-row-content">
+                      <span className="analytics-popover-label">{locale === 'vi' ? 'Địa chỉ' : 'Location / Address'}</span>
+                      <span className="analytics-popover-val">{hoverPopover.party.location}</span>
+                    </div>
+                  </div>
+                )}
+
+                {hoverPopover.party.notes && (
+                  <div className="analytics-popover-row">
+                    <span className="analytics-popover-icon">📝</span>
+                    <div className="analytics-popover-row-content">
+                      <span className="analytics-popover-label">{locale === 'vi' ? 'Ghi chú' : 'Notes'}</span>
+                      <span className="analytics-popover-val notes">{hoverPopover.party.notes}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats Grid */}
+              <div className="analytics-popover-stats-grid">
+                <div className="analytics-popover-stat-item">
+                  <span className="analytics-stat-label">{locale === 'vi' ? 'Hóa đơn' : 'Invoices'}</span>
+                  <span className="analytics-stat-val">{hoverPopover.stats.count}</span>
+                </div>
+                <div className="analytics-popover-stat-item">
+                  <span className="analytics-stat-label">{locale === 'vi' ? 'Tổng volume' : 'Volume'}</span>
+                  <span className="analytics-stat-val" style={{ color: '#5DE4C7' }}>
+                    {hoverPopover.stats.totalUsdc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
+                  </span>
+                </div>
+                <div className="analytics-popover-stat-item">
+                  <span className="analytics-stat-label">{locale === 'vi' ? 'Vai trò' : 'Role'}</span>
+                  <span className="analytics-stat-val" style={{ fontSize: '10px', color: '#8B7AFF' }}>
+                    {hoverPopover.party.isRecipient ? (locale === 'vi' ? 'Người tạo' : 'Issuer') : (locale === 'vi' ? 'Người trả' : 'Client')}
+                  </span>
+                </div>
+              </div>
+
+              {hoverPopover.party.wallet && hoverPopover.party.wallet.startsWith('0x') && (
+                <div style={{ marginTop: '10px', textAlign: 'center', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${hoverPopover.party.wallet}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: '11px',
+                      color: '#8B7AFF',
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>{locale === 'vi' ? 'Xem trên Sepolia Etherscan ↗' : 'View on Sepolia Etherscan ↗'}</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )
+      }
     </div>
   );
 }
