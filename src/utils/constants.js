@@ -15,13 +15,6 @@ export const CONTRACTS = {
 
 // ── Supported Tokens ──
 export const TOKENS = {
-  ETH: {
-    symbol: 'ETH',
-    name: 'Ether',
-    decimals: 18,
-    address: '0x0000000000000000000000000000000000000000',
-    icon: '⟠',
-  },
   USDC: {
     symbol: 'USDC',
     name: 'USD Coin',
@@ -29,12 +22,40 @@ export const TOKENS = {
     address: '', // Sepolia USDC address
     icon: '💲',
   },
+  ETH: {
+    symbol: 'ETH',
+    name: 'Ether',
+    decimals: 18,
+    address: '0x0000000000000000000000000000000000000000',
+    icon: '⟠',
+  },
+  USDT: {
+    symbol: 'USDT',
+    name: 'Tether USD',
+    decimals: 6,
+    address: '',
+    icon: '₮',
+  },
   DAI: {
     symbol: 'DAI',
     name: 'Dai',
     decimals: 18,
     address: '', // Sepolia DAI address
     icon: '◈',
+  },
+  BTC: {
+    symbol: 'BTC',
+    name: 'Bitcoin',
+    decimals: 8,
+    address: '',
+    icon: '₿',
+  },
+  SOL: {
+    symbol: 'SOL',
+    name: 'Solana',
+    decimals: 9,
+    address: '',
+    icon: '◎',
   },
 };
 
@@ -116,4 +137,4 @@ export const ESCROW_TIMEOUT_DAYS = 7;
 export const DISPUTE_WINDOW_DAYS = 3;
 
 // ── API ──
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '';

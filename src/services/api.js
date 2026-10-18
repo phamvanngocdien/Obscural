@@ -1,14 +1,20 @@
 import { API_BASE_URL } from '../utils/constants';
 import supabase from './supabase';
+import { fetchLiveTokenPrices, isStablecoin, getCachedTokenPrice } from '../utils/currency';
 
 /**
  * Backend API client.
- * Handles all communication with the Express.js backend with direct Supabase fallback.
+ * For deployed web environment: directly communicates with Supabase for data operations,
+ * or delegates to API_BASE_URL if explicitly configured.
  */
 
 async function request(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // In deployed web with no external backend set, immediately use direct Supabase
+  if (!API_BASE_URL) {
+    throw new Error('Direct Supabase mode active');
+  }
 
+  const url = `${API_BASE_URL}${endpoint}`;
   const config = {
     headers: {
       'Content-Type': 'application/json',
@@ -23,21 +29,13 @@ async function request(endpoint, options = {}) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  try {
-    const response = await fetch(url, config);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `API error: ${response.status}`);
-    }
-
-    return response.json();
-  } catch (error) {
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Backend server is not running. Start it with: npm run dev:server');
-    }
-    throw error;
+  const response = await fetch(url, config);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `API error: ${response.status}`);
   }
+
+  return response.json();
 }
 
 // ── AI Agent Endpoints ──
@@ -263,36 +261,330 @@ export const exportApi = {
 
 // ── Autopilot Endpoints ──
 
+async function evaluateTrustSupabase(userId) {
+  if (!userId) return { contacts: [] };
+  const u = userId.toLowerCase().trim();
+
+  // 1. Fetch manual overrides
+  let overrides = [];
+  try {
+    const { data: ovData } = await supabase
+      .from('trust_overrides')
+      .select('*')
+      .eq('owner_id', userId);
+    overrides = ovData || [];
+  } catch {
+    // optional table
+  }
+  const overrideMap = new Map(overrides.map((o) => [(o.address || '').toLowerCase().trim(), o]));
+
+  // 2. Fetch invoices for this user
+  let allTxs = [];
+  try {
+    const { data: invData } = await supabase
+      .from('invoices')
+      .select('id, creator_id, recipient_id, amount, currency, status, created_at, title, from_data, to_data')
+      .or(`creator_id.ilike.${u},recipient_id.ilike.${u}`)
+      .in('status', ['paid', 'sent'])
+      .order('created_at', { ascending: false })
+      .limit(200);
+    allTxs = invData || [];
+  } catch (err) {
+    console.warn('Failed to load transactions for trust scoring', err);
+  }
+
+  if (!allTxs.length) return { contacts: [] };
+
+  // 3. Fetch contacts
+  let contactsList = [];
+  try {
+    const { data: cData } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('owner_id', userId);
+    contactsList = cData || [];
+  } catch {}
+
+  const contactsMap = new Map();
+  contactsList.forEach((c) => {
+    if (c.wallet_address) {
+      contactsMap.set(c.wallet_address.toLowerCase().trim(), c);
+    }
+  });
+
+  // 4. Find counterparties
+  const counterparties = new Map();
+  for (const tx of allTxs) {
+    const cId = (tx.creator_id || '').toLowerCase().trim();
+    const rId = (tx.recipient_id || '').toLowerCase().trim();
+    const other = cId === u ? rId : cId;
+    if (other && other !== u) {
+      if (!counterparties.has(other)) counterparties.set(other, []);
+      counterparties.get(other).push(tx);
+    }
+  }
+
+  const tokenPrices = await fetchLiveTokenPrices();
+  const profiles = [];
+
+  for (const [addr, txs] of counterparties.entries()) {
+    let cryptoCount = 0;
+    let totalCrypto = 0;
+    let cryptoSymbol = null;
+
+    const amounts = txs.map((t) => {
+      const raw = parseFloat(t.amount) || 0;
+      const curr = (t.currency || 'USDC').toUpperCase().trim();
+      if (isStablecoin(curr)) {
+        return raw;
+      }
+      const liveRate = tokenPrices[curr] || getCachedTokenPrice(curr);
+      if (liveRate > 0) {
+        cryptoCount++;
+        totalCrypto += raw;
+        cryptoSymbol = curr;
+        return raw * liveRate;
+      }
+      return raw;
+    });
+
+    const dates = txs.map((t) => new Date(t.created_at || Date.now()).getTime()).sort();
+    const now = Date.now();
+    const totalVolume = amounts.reduce((a, b) => a + b, 0);
+    const avgAmount = amounts.length > 0 ? totalVolume / amounts.length : 0;
+    const avgCrypto = cryptoCount > 0 && cryptoSymbol ? `${(totalCrypto / amounts.length).toFixed(4)} ${cryptoSymbol}` : null;
+
+    // Variance & consistency
+    const variance = amounts.reduce((sum, a) => sum + Math.pow(a - avgAmount, 2), 0) / (amounts.length || 1);
+    const stdDev = Math.sqrt(variance);
+    const consistency = avgAmount > 0 ? Math.max(0, 100 - (stdDev / avgAmount) * 100) : 0;
+
+    let frequencyDays = null;
+    if (dates.length >= 2) {
+      const gaps = [];
+      for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i - 1]) / 86400000);
+      frequencyDays = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    }
+
+    const durationDays = (now - dates[0]) / 86400000;
+    const lastTxAge = (now - dates[dates.length - 1]) / 86400000;
+
+    let score = 0;
+    score += Math.min(30, txs.length * 8);
+    score += Math.min(25, consistency * 0.25);
+    score += Math.min(20, Math.max(0, 20 - lastTxAge * 0.5));
+    score += Math.min(15, durationDays > 30 ? 15 : durationDays / 2);
+    score += frequencyDays && frequencyDays < 45 ? 10 : 0;
+    const calculatedScore = Math.round(Math.min(100, Math.max(10, score)));
+
+    const override = overrideMap.get(addr);
+    const isOverridden = !!override;
+    const trustScore = isOverridden ? override.manual_score : calculatedScore;
+
+    const trustLevel = trustScore >= 80 ? 'high' : trustScore >= 50 ? 'medium' : trustScore >= 20 ? 'low' : 'unknown';
+    const pattern = frequencyDays ? (frequencyDays <= 10 ? 'weekly' : frequencyDays <= 35 ? 'monthly' : 'irregular') : 'one-time';
+    const recommendation = trustLevel === 'high' ? 'auto_pay' : trustLevel === 'medium' ? 'notify' : 'manual_only';
+
+    const matchedContact = contactsMap.get(addr) || null;
+    let contactName = matchedContact?.name || '';
+    let contactEmail = matchedContact?.email || '';
+
+    if (!contactName) {
+      for (const t of txs) {
+        if ((t.creator_id || '').toLowerCase() === addr && t.from_data?.name) {
+          contactName = t.from_data.name;
+          contactEmail = contactEmail || t.from_data.email || '';
+          break;
+        }
+        if ((t.recipient_id || '').toLowerCase() === addr && t.to_data?.name) {
+          contactName = t.to_data.name;
+          contactEmail = contactEmail || t.to_data.email || '';
+          break;
+        }
+      }
+    }
+
+    const reasoning = isOverridden
+      ? `Manual override applied: ${override.reason || 'Set by user'}`
+      : trustLevel === 'high'
+      ? `High trust established with ${txs.length} successful transactions and strong volume consistency (${Math.round(consistency)}%).`
+      : trustLevel === 'medium'
+      ? `Moderate transaction history (${txs.length} txs). Stable interactions, standard approval recommended.`
+      : `Limited on-chain history (${txs.length} txs). Manual approval required before settlement.`;
+
+    profiles.push({
+      address: addr,
+      contactName: contactName || null,
+      contactEmail: contactEmail || null,
+      contactDetails: matchedContact,
+      trustScore,
+      aiScore: calculatedScore,
+      isOverridden,
+      overrideReason: override?.reason || null,
+      trustLevel,
+      pattern,
+      recommendation,
+      suggestedLimit: Math.round(avgAmount * 1.5 * 100) / 100,
+      metrics: {
+        address: addr,
+        txCount: txs.length,
+        totalVolume: Math.round(totalVolume * 100) / 100,
+        avgAmount: Math.round(avgAmount * 100) / 100,
+        avgCrypto,
+        consistency: Math.round(consistency),
+        frequencyDays: frequencyDays ? Math.round(frequencyDays) : null,
+        durationDays: Math.round(durationDays),
+        lastTxAge: Math.round(lastTxAge),
+        score: calculatedScore,
+      },
+      aiEval: {
+        trustScore,
+        trustLevel,
+        reasoning,
+        suggestedLimit: Math.round(avgAmount * 1.5 * 100) / 100,
+        pattern,
+        flags: isOverridden ? [`Manual override: ${override.reason}`] : [],
+        recommendation,
+      },
+      flags: isOverridden ? [`Manual override: ${override.reason}`] : [],
+    });
+  }
+
+  profiles.sort((a, b) => b.trustScore - a.trustScore);
+  return { contacts: profiles };
+}
+
 export const autopilotApi = {
   /** AI-evaluated trust profiles from transaction history */
-  getTrust: (userId) => request(`/api/autopilot/trust?userId=${userId}`),
+  getTrust: async (userId) => {
+    try {
+      return await request(`/api/autopilot/trust?userId=${userId}`);
+    } catch {
+      return await evaluateTrustSupabase(userId);
+    }
+  },
 
   /** Trigger autopilot scan (evaluate + propose actions) */
-  scan: (userId) =>
-    request('/api/autopilot/scan', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    }),
+  scan: async (userId) => {
+    try {
+      return await request('/api/autopilot/scan', {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      });
+    } catch {
+      const trustRes = await evaluateTrustSupabase(userId);
+      const profiles = trustRes.contacts || [];
+      const profileMap = new Map(profiles.map((p) => [p.address.toLowerCase(), p]));
+
+      // Propose actions on pending invoices
+      const u = (userId || '').toLowerCase().trim();
+      const { data: pendingInvoices } = await supabase
+        .from('invoices')
+        .select('*')
+        .or(`creator_id.ilike.${u},recipient_id.ilike.${u}`)
+        .in('status', ['sent', 'draft'])
+        .limit(50);
+
+      const actions = (pendingInvoices || []).map((inv) => {
+        const cId = (inv.creator_id || '').toLowerCase().trim();
+        const rId = (inv.recipient_id || '').toLowerCase().trim();
+        const counterparty = cId === u ? rId : cId;
+        const p = profileMap.get(counterparty);
+        const score = p ? p.trustScore : 20;
+
+        let action = 'notify';
+        let reason = 'Review recommended before on-chain payment.';
+        if (score >= 80) {
+          action = 'proposed';
+          reason = `High trust score (${score}/100) — eligible for 1-click auto-pay.`;
+        } else if (score >= 50) {
+          action = 'notify';
+          reason = `Medium trust score (${score}/100) — notification sent, awaiting sign-off.`;
+        } else {
+          action = 'flagged';
+          reason = `Limited transaction history (${score}/100) — manual safety approval required.`;
+        }
+
+        return {
+          invoiceId: inv.id,
+          action,
+          sender: counterparty,
+          amount: inv.amount,
+          currency: inv.currency || 'USDC',
+          trustScore: score,
+          reason,
+        };
+      });
+
+      return { success: true, actions, trustProfiles: profiles };
+    }
+  },
 
   /** Override trust score manually */
-  setOverride: (userId, address, score, reason) =>
-    request('/api/autopilot/override', {
-      method: 'PUT',
-      body: JSON.stringify({ userId, address, score, reason }),
-    }),
+  setOverride: async (userId, address, score, reason) => {
+    try {
+      return await request('/api/autopilot/override', {
+        method: 'PUT',
+        body: JSON.stringify({ userId, address, score, reason }),
+      });
+    } catch {
+      const addr = (address || '').toLowerCase().trim();
+      const record = {
+        owner_id: userId,
+        address: addr,
+        manual_score: parseInt(score, 10) || 50,
+        reason: reason || '',
+        updated_at: new Date().toISOString(),
+      };
+      const { data: existing } = await supabase
+        .from('trust_overrides')
+        .select('id')
+        .eq('owner_id', userId)
+        .eq('address', addr)
+        .single();
+
+      if (existing?.id) {
+        await supabase.from('trust_overrides').update(record).eq('id', existing.id);
+      } else {
+        await supabase.from('trust_overrides').insert({ ...record, created_at: new Date().toISOString() });
+      }
+      return { success: true };
+    }
+  },
 
   /** Remove trust override (revert to AI score) */
-  removeOverride: (userId, address) =>
-    request(`/api/autopilot/override?userId=${userId}&address=${address}`, {
-      method: 'DELETE',
-    }),
+  removeOverride: async (userId, address) => {
+    try {
+      return await request(`/api/autopilot/override?userId=${userId}&address=${address}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      await supabase
+        .from('trust_overrides')
+        .delete()
+        .eq('owner_id', userId)
+        .eq('address', (address || '').toLowerCase().trim());
+      return { success: true };
+    }
+  },
 
   /** Get activity log */
-  getActivity: (userId, limit = 50) =>
-    request(`/api/autopilot/activity?userId=${userId}&limit=${limit}`),
+  getActivity: async (userId, limit = 50) => {
+    try {
+      return await request(`/api/autopilot/activity?userId=${userId}&limit=${limit}`);
+    } catch {
+      return { success: true, data: [] };
+    }
+  },
 
   /** Get OnLatch connection status */
-  getLatchStatus: () => request('/api/autopilot/latch-status'),
+  getLatchStatus: async () => {
+    try {
+      return await request('/api/autopilot/latch-status');
+    } catch {
+      return { success: true, data: { enabled: false } };
+    }
+  },
 };
 
 // ── Contact Endpoints ──
@@ -552,14 +844,95 @@ export const notificationsApi = {
 
 export const profilesApi = {
   /** Get user profile */
-  get: (userId) => request(`/api/profiles/${userId}`),
+  get: async (userId) => {
+    try {
+      return await request(`/api/profiles/${userId}`);
+    } catch {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+        if (error && error.code !== 'PGRST116') throw error;
+        if (!data) {
+          return {
+            success: true,
+            data: {
+              user_id: userId,
+              name: '',
+              email: '',
+              avatar_url: '',
+              location: '',
+              company: '',
+            },
+            exists: false,
+          };
+        }
+        return { success: true, data, exists: true };
+      } catch {
+        return {
+          success: true,
+          data: {
+            user_id: userId,
+            name: '',
+            email: '',
+            avatar_url: '',
+            location: '',
+            company: '',
+          },
+          exists: false,
+        };
+      }
+    }
+  },
 
   /** Create or update profile (upsert) */
-  save: (userId, data) =>
-    request(`/api/profiles/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  save: async (userId, data) => {
+    try {
+      return await request(`/api/profiles/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    } catch (err) {
+      try {
+        const record = {
+          user_id: userId,
+          name: data.name ?? '',
+          email: data.email ?? '',
+          avatar_url: data.avatarUrl ?? data.avatar_url ?? '',
+          location: data.location ?? '',
+          company: data.company ?? '',
+          updated_at: new Date().toISOString(),
+        };
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('user_id', userId)
+          .single();
+        if (existing?.id) {
+          const { data: updated, error } = await supabase
+            .from('profiles')
+            .update(record)
+            .eq('id', existing.id)
+            .select()
+            .single();
+          if (error) throw error;
+          return { success: true, data: updated };
+        } else {
+          const { data: created, error } = await supabase
+            .from('profiles')
+            .insert(record)
+            .select()
+            .single();
+          if (error) throw error;
+          return { success: true, data: created };
+        }
+      } catch (sbErr) {
+        throw sbErr || err;
+      }
+    }
+  },
 };
 
 export default { aiApi, invoiceApi, exportApi, autopilotApi, contactsApi, notificationsApi, profilesApi };

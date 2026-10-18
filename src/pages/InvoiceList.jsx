@@ -4,7 +4,7 @@ import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
 import { toast } from '../components/common';
-import { fetchLiveEthPrice, formatInvoiceDisplay } from '../utils/currency';
+import { fetchLiveTokenPrices, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/InvoiceList.css';
 
 export default function InvoiceList() {
@@ -14,11 +14,11 @@ export default function InvoiceList() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [ethPrice, setEthPrice] = useState(2480);
+  const [tokenPrices, setTokenPrices] = useState({});
 
   useEffect(() => {
-    fetchLiveEthPrice().then((p) => {
-      if (p > 0) setEthPrice(p);
+    fetchLiveTokenPrices().then((prices) => {
+      if (prices && Object.keys(prices).length > 0) setTokenPrices(prices);
     });
   }, []);
 
@@ -316,7 +316,7 @@ export default function InvoiceList() {
                     </div>
                     <div className="invoice-item-right">
                       {(() => {
-                        const display = formatInvoiceDisplay(inv, ethPrice);
+                        const display = formatInvoiceDisplay(inv, tokenPrices);
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px' }}>
                             <span

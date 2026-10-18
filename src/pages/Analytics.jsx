@@ -3,7 +3,7 @@ import { Chart, registerables } from 'chart.js';
 import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
-import { fetchLiveEthPrice, getInvoiceUsdcValue, formatInvoiceDisplay } from '../utils/currency';
+import { fetchLiveTokenPrices, getInvoiceUsdcValue, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/Analytics.css';
 
 Chart.register(...registerables);
@@ -15,7 +15,7 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [timeRange, setTimeRange] = useState('all_time');
-  const [ethPrice, setEthPrice] = useState(2480);
+  const [tokenPrices, setTokenPrices] = useState({});
 
   const lineChartRef = useRef(null);
   const donutChartRef = useRef(null);
@@ -23,8 +23,8 @@ export default function Analytics() {
   const donutInstanceRef = useRef(null);
 
   useEffect(() => {
-    fetchLiveEthPrice().then((p) => {
-      if (p > 0) setEthPrice(p);
+    fetchLiveTokenPrices().then((prices) => {
+      if (prices && Object.keys(prices).length > 0) setTokenPrices(prices);
     });
   }, []);
 
@@ -58,16 +58,16 @@ export default function Analytics() {
 
   // Compute calculated financial telemetry in USDC
   const totalInvoices = invoices.length;
-  const totalVolume = invoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
+  const totalVolume = invoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, tokenPrices), 0);
   
   const paidInvoices = invoices.filter(i => i.status === 'paid');
-  const totalPaid = paidInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
+  const totalPaid = paidInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, tokenPrices), 0);
 
   const pendingInvoices = invoices.filter(i => i.status === 'pending');
-  const totalPending = pendingInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
+  const totalPending = pendingInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, tokenPrices), 0);
 
   const overdueInvoices = invoices.filter(i => i.status === 'overdue');
-  const totalOverdue = overdueInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, ethPrice), 0);
+  const totalOverdue = overdueInvoices.reduce((acc, inv) => acc + getInvoiceUsdcValue(inv, tokenPrices), 0);
 
   const settlementRate = totalInvoices > 0 ? ((paidInvoices.length / totalInvoices) * 100).toFixed(1) : '100.0';
 
@@ -81,7 +81,7 @@ export default function Analytics() {
     invoices.forEach((inv) => {
       const date = inv.created_at ? new Date(inv.created_at) : new Date();
       const m = date.getMonth();
-      monthlyTotals[m] += getInvoiceUsdcValue(inv, ethPrice);
+      monthlyTotals[m] += getInvoiceUsdcValue(inv, tokenPrices);
     });
 
     const maxMonthlyVal = Math.max(...monthlyTotals, 0);
@@ -463,7 +463,7 @@ export default function Analytics() {
                       <td>
                         <span className="amount-cell">
                           {(() => {
-                            const display = formatInvoiceDisplay(inv, ethPrice);
+                            const display = formatInvoiceDisplay(inv, tokenPrices);
                             if (display.cryptoStr) {
                               return (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>

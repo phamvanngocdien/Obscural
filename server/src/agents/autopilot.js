@@ -21,7 +21,7 @@ import supabase from '../services/supabase.js';
  */
 
 const TRUST_THRESHOLDS = {
-  HIGH: 80,     // Auto-pay eligible
+  HIGH: 85,     // Auto-pay eligible
   MEDIUM: 50,   // Notify user, suggest approval
   LOW: 20,      // Flag for review
 };
@@ -49,10 +49,93 @@ Scoring guide:
 - Deduct points for: irregular amounts, large gaps, sudden amount spikes
 - Suggested limit should be ~1.5x the average historical amount`;
 
+const STABLECOINS = new Set([
+  'USDC',
+  'USDT',
+  'DAI',
+  'BUSD',
+  'FDUSD',
+  'USDE',
+  'PYUSD',
+  'FRAX',
+  'TUSD',
+  'USD',
+]);
+
+const TOKEN_COINGECKO_MAP = {
+  ETH: 'ethereum',
+  WETH: 'ethereum',
+  BTC: 'bitcoin',
+  WBTC: 'wrapped-bitcoin',
+  SOL: 'solana',
+  MATIC: 'matic-network',
+  POL: 'matic-network',
+  AVAX: 'avalanche-2',
+  BNB: 'binancecoin',
+  ARB: 'arbitrum',
+  OP: 'optimism',
+  LINK: 'chainlink',
+};
+
+let cachedServerPrices = {};
+let lastServerFetch = 0;
+
+/**
+ * Fetch real-time market prices for non-stable tokens from CoinGecko / Coinbase
+ */
+async function fetchRealtimeTokenPrices() {
+  const now = Date.now();
+  if (now - lastServerFetch < 30000 && Object.keys(cachedServerPrices).length > 0) {
+    return { ...cachedServerPrices };
+  }
+
+  try {
+    const ids = Array.from(new Set(Object.values(TOKEN_COINGECKO_MAP))).join(',');
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`,
+      { signal: AbortSignal.timeout(3500) }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const updated = { ...cachedServerPrices };
+      for (const [sym, id] of Object.entries(TOKEN_COINGECKO_MAP)) {
+        if (data[id]?.usd) {
+          updated[sym] = data[id].usd;
+        }
+      }
+      cachedServerPrices = updated;
+      lastServerFetch = now;
+      return { ...cachedServerPrices };
+    }
+  } catch (err) {
+    console.warn('[Autopilot] CoinGecko price fetch warning, using live fallback:', err.message);
+  }
+
+  // Backup fallback: Coinbase spot price
+  try {
+    const spotSymbols = ['ETH', 'BTC', 'SOL'];
+    for (const sym of spotSymbols) {
+      const cbRes = await fetch(`https://api.coinbase.com/v2/prices/${sym}-USD/spot`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (cbRes.ok) {
+        const cbData = await cbRes.json();
+        const p = parseFloat(cbData?.data?.amount);
+        if (p > 0) cachedServerPrices[sym] = p;
+      }
+    }
+    if (cachedServerPrices.ETH) cachedServerPrices.WETH = cachedServerPrices.ETH;
+    if (cachedServerPrices.BTC) cachedServerPrices.WBTC = cachedServerPrices.BTC;
+    if (Object.keys(cachedServerPrices).length > 0) lastServerFetch = now;
+  } catch {}
+
+  return { ...cachedServerPrices };
+}
+
 /**
  * Analyze transaction history and compute trust metrics for each counterparty.
  */
-function computeTrustMetrics(transactions, counterpartyAddress) {
+function computeTrustMetrics(transactions, counterpartyAddress, tokenPrices = {}) {
   const txs = transactions.filter(t =>
     t.creator_id?.toLowerCase() === counterpartyAddress ||
     t.recipient_id?.toLowerCase() === counterpartyAddress
@@ -64,6 +147,7 @@ function computeTrustMetrics(transactions, counterpartyAddress) {
       txCount: 0,
       totalVolume: 0,
       avgAmount: 0,
+      avgCrypto: null,
       consistency: 0,
       frequencyDays: null,
       durationDays: 0,
@@ -72,12 +156,31 @@ function computeTrustMetrics(transactions, counterpartyAddress) {
     };
   }
 
-  const amounts = txs.map(t => parseFloat(t.amount) || 0);
+  let cryptoCount = 0;
+  let totalCrypto = 0;
+  let cryptoSymbol = null;
+
+  const amounts = txs.map(t => {
+    const raw = parseFloat(t.amount) || 0;
+    const curr = (t.currency || 'USDC').toUpperCase().trim();
+    if (STABLECOINS.has(curr)) {
+      return raw;
+    }
+    const liveRate = tokenPrices[curr] || 0;
+    if (liveRate > 0) {
+      cryptoCount++;
+      totalCrypto += raw;
+      cryptoSymbol = curr;
+      return raw * liveRate;
+    }
+    return raw;
+  });
   const dates = txs.map(t => new Date(t.created_at).getTime()).sort();
   const now = Date.now();
 
   const totalVolume = amounts.reduce((a, b) => a + b, 0);
-  const avgAmount = totalVolume / amounts.length;
+  const avgAmount = amounts.length > 0 ? totalVolume / amounts.length : 0;
+  const avgCrypto = cryptoCount > 0 && cryptoSymbol ? `${(totalCrypto / amounts.length).toFixed(4)} ${cryptoSymbol}` : null;
 
   // Consistency: standard deviation / mean (lower = more consistent)
   const variance = amounts.reduce((sum, a) => sum + Math.pow(a - avgAmount, 2), 0) / amounts.length;
@@ -111,6 +214,7 @@ function computeTrustMetrics(transactions, counterpartyAddress) {
     txCount: txs.length,
     totalVolume: Math.round(totalVolume * 100) / 100,
     avgAmount: Math.round(avgAmount * 100) / 100,
+    avgCrypto,
     consistency: Math.round(consistency),
     frequencyDays: frequencyDays ? Math.round(frequencyDays) : null,
     durationDays: Math.round(durationDays),
@@ -174,6 +278,9 @@ export async function evaluateTrust(userId) {
   const overrides = await getOverrides(userId);
   const overrideMap = new Map(overrides.map(o => [o.address, o]));
 
+  // Load real-time market prices for all supported non-stable tokens
+  const tokenPrices = await fetchRealtimeTokenPrices();
+
   // Get ALL transactions involving this user
   const { data: allTxs } = await supabase
     .from('invoices').select('id, creator_id, recipient_id, amount, currency, status, created_at, title')
@@ -195,7 +302,7 @@ export async function evaluateTrust(userId) {
   // Compute metrics for each
   const profiles = [];
   for (const addr of counterparties) {
-    const metrics = computeTrustMetrics(allTxs, addr);
+    const metrics = computeTrustMetrics(allTxs, addr, tokenPrices);
 
     // AI refinement for contacts with enough history
     let aiEval = null;
@@ -226,7 +333,7 @@ Evaluate:`;
 
     const trustLevel = trustScore >= TRUST_THRESHOLDS.HIGH ? 'high'
       : trustScore >= TRUST_THRESHOLDS.MEDIUM ? 'medium'
-      : trustScore >= TRUST_THRESHOLDS.LOW ? 'low' : 'unknown';
+        : trustScore >= TRUST_THRESHOLDS.LOW ? 'low' : 'unknown';
 
     profiles.push({
       address: addr,

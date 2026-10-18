@@ -4,7 +4,7 @@ import { toast } from '../components/common';
 import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import api from '../services/api';
-import { fetchLiveEthPrice, formatInvoiceDisplay } from '../utils/currency';
+import { fetchLiveTokenPrices, formatInvoiceDisplay } from '../utils/currency';
 import '../styles/Dashboard.css';
 
 const statusColors = {
@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
-  const [ethPrice, setEthPrice] = useState(0);
+  const [tokenPrices, setTokenPrices] = useState({});
 
   // Modals
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -31,15 +31,15 @@ export default function Dashboard() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    // Fetch ETH price from CoinGecko
-    fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.ethereum && data.ethereum.usd) {
-          setEthPrice(data.ethereum.usd);
-        }
+    let active = true;
+    fetchLiveTokenPrices()
+      .then((prices) => {
+        if (active && prices) setTokenPrices(prices);
       })
-      .catch((err) => console.error('Failed to fetch ETH price', err));
+      .catch((err) => console.warn('Failed to fetch live token prices', err));
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function Dashboard() {
     const date = new Date(inv.created_at);
     const dateStr = `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} / ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 
-    const display = formatInvoiceDisplay(inv, ethPrice);
+    const display = formatInvoiceDisplay(inv, tokenPrices);
     const amountStr = display.cryptoStr
       ? `${isIncome ? '+' : '-'}${display.usdcStr} (${display.cryptoStr})`
       : `${isIncome ? '+' : '-'}${display.usdcStr}`;
@@ -116,7 +116,8 @@ export default function Dashboard() {
 
   // Convert ETH balance to USD
   const ethBalance = parseFloat(user?.balance || wallet?.balance || 0);
-  const usdValue = ethBalance * (ethPrice || 2600);
+  const ethRate = tokenPrices.ETH || tokenPrices.WETH || 0;
+  const usdValue = ethBalance * (ethRate || 0);
   const walletBalance = usdValue.toFixed(2);
   const [whole, decimal] = walletBalance.split('.');
 

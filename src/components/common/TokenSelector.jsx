@@ -46,6 +46,27 @@ export function TokenIcon({ symbol, size = 24 }) {
           />
         </svg>
       );
+    case 'BTC':
+    case 'WBTC':
+      return (
+        <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#F7931A" />
+          <path
+            d="M22.5 13.5c-.3-2-1.7-2.7-3.6-3V8.5h-2.1v2h-1.7V8.5h-2.1v2h-3.8v2.2h1.5c.8 0 1 .4 1 .9v7.8c0 .5-.3.9-1 .9h-1.5V23.5h3.8v2h2.1v-2h1.7v2h2.1v-2c2.4-.2 4.1-1.2 4.4-3.5.3-1.8-.6-2.9-2-3.3 1.2-.5 1.8-1.5 1.5-3.2zm-4.7-2.3c1.2 0 2.2.5 2.2 1.8 0 1.3-1 1.8-2.2 1.8h-2.5v-3.6h2.5zm.5 9.4h-3v-4h3c1.4 0 2.4.6 2.4 2 0 1.4-1 2-2.4 2z"
+            fill="white"
+          />
+        </svg>
+      );
+    case 'SOL':
+      return (
+        <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="16" fill="#14F195" />
+          <path
+            d="M9 10.5h11.5l2.5 2.5H11.5L9 10.5zm0 8.5h11.5l2.5 2.5H11.5L9 19zm14-4.25H11.5L9 16.5h11.5l2.5-3.25z"
+            fill="#121B2B"
+          />
+        </svg>
+      );
     default:
       return (
         <div
@@ -68,7 +89,7 @@ export function TokenIcon({ symbol, size = 24 }) {
   }
 }
 
-export default function TokenSelector({ value = 'USDC', onChange, ethPrice = 2480 }) {
+export default function TokenSelector({ value = 'USDC', onChange, tokenPrices = {}, ethPrice }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -128,11 +149,15 @@ export default function TokenSelector({ value = 'USDC', onChange, ethPrice = 248
         </div>
 
         <div className="token-trigger-right">
-          {selectedToken.symbol === 'ETH' && ethPrice > 0 && (
-            <span className="token-trigger-rate">
-              1 ETH ≈ ${ethPrice.toLocaleString()}
-            </span>
-          )}
+          {(() => {
+            if (selectedToken.isStablecoin) return null;
+            const rate = tokenPrices[selectedToken.symbol] || (selectedToken.symbol === 'ETH' && ethPrice ? ethPrice : 0);
+            return rate > 0 ? (
+              <span className="token-trigger-rate">
+                1 {selectedToken.symbol} ≈ ${rate.toLocaleString()}
+              </span>
+            ) : null;
+          })()}
           <svg
             className={`token-chevron ${isOpen ? 'rotate' : ''}`}
             width="16"
@@ -197,14 +222,17 @@ export default function TokenSelector({ value = 'USDC', onChange, ethPrice = 248
                   </div>
 
                   <div className="token-item-right">
-                    {token.symbol === 'ETH' && ethPrice > 0 && (
-                      <span className="token-item-rate">
-                        ≈ ${ethPrice.toLocaleString()}
-                      </span>
-                    )}
-                    {token.isStablecoin && (
-                      <span className="token-item-peg">$1.00 Pegged</span>
-                    )}
+                    {(() => {
+                      if (token.isStablecoin) {
+                        return <span className="token-item-peg">$1.00 Pegged</span>;
+                      }
+                      const rate = tokenPrices[token.symbol] || (token.symbol === 'ETH' && ethPrice ? ethPrice : 0);
+                      return rate > 0 ? (
+                        <span className="token-item-rate">
+                          ≈ ${rate.toLocaleString()}
+                        </span>
+                      ) : null;
+                    })()}
                     {isSelected && (
                       <span className="token-selected-check">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">

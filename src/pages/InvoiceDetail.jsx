@@ -8,7 +8,7 @@ import useAuthStore from '../store/authStore';
 import useI18nStore from '../store/i18nStore';
 import useWallet from '../hooks/useWallet';
 import api from '../services/api';
-import { fetchLiveEthPrice, formatInvoiceDisplay } from '../utils/currency';
+import { fetchLiveTokenPrices, formatInvoiceDisplay, isStablecoin } from '../utils/currency';
 import '../styles/InvoiceList.css';
 
 export default function InvoiceDetail() {
@@ -24,12 +24,18 @@ export default function InvoiceDetail() {
   const [copied, setCopied] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
   const [isPayingOnChain, setIsPayingOnChain] = useState(false);
-  const [ethPrice, setEthPrice] = useState(2480);
+  const [tokenPrices, setTokenPrices] = useState({});
 
   useEffect(() => {
-    fetchLiveEthPrice().then((p) => {
-      if (p > 0) setEthPrice(p);
-    });
+    let active = true;
+    fetchLiveTokenPrices()
+      .then((prices) => {
+        if (active && prices) setTokenPrices(prices);
+      })
+      .catch((err) => console.warn('Failed to fetch live token prices', err));
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -93,13 +99,21 @@ export default function InvoiceDetail() {
       return;
     }
 
-    // Determine ETH amount
+    // Determine ETH amount using real-time market rates
     let ethToSend = 0;
-    if (inv.currency === 'ETH') {
+    const curr = (inv.currency || 'USDC').toUpperCase().trim();
+    const ethRate = tokenPrices.ETH || tokenPrices.WETH || 0;
+
+    if (curr === 'ETH') {
       ethToSend = parseFloat(inv.amount || inv.total || 0);
-    } else {
+    } else if (isStablecoin(curr)) {
       const fiatTotal = parseFloat(inv.amount || inv.total || 0);
-      ethToSend = parseFloat((fiatTotal / (ethPrice || 2600)).toFixed(6));
+      ethToSend = ethRate > 0 ? parseFloat((fiatTotal / ethRate).toFixed(6)) : 0;
+    } else {
+      const rawAmt = parseFloat(inv.amount || inv.total || 0);
+      const tokenRate = tokenPrices[curr] || 0;
+      const usdVal = tokenRate > 0 ? rawAmt * tokenRate : rawAmt;
+      ethToSend = ethRate > 0 ? parseFloat((usdVal / ethRate).toFixed(6)) : 0;
     }
 
     if (isNaN(ethToSend) || ethToSend <= 0) {
@@ -625,7 +639,7 @@ export default function InvoiceDetail() {
           <div className="id-summary-row id-summary-total">
             <span>{t('invoiceDetail.total')}:</span>
             {(() => {
-              const display = formatInvoiceDisplay(inv, ethPrice);
+              const display = formatInvoiceDisplay(inv, tokenPrices);
               if (display.cryptoStr) {
                 return (
                   <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
