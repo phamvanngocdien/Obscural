@@ -599,7 +599,7 @@ export default function Analytics() {
                 </tr>
               ) : (
                 filteredInvoices.map((inv) => {
-                  const displayId = inv.id ? (inv.id.length > 12 ? `${inv.id.slice(0, 8)}...` : inv.id) : 'INV-001';
+                  const invoiceIdStr = inv.id ? inv.id.slice(0, 8) : 'INV-001';
                   const dateStr = inv.created_at ? new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : (locale === 'vi' ? 'Hôm nay' : 'Today');
                   const dueStr = inv.due_date ? new Date(inv.due_date).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : '—';
                   const party = getCounterpartyInfo(inv);
@@ -610,10 +610,16 @@ export default function Analytics() {
                         <Link
                           to={`/invoices/${inv.id}`}
                           className="invoice-id-badge"
-                          style={{ textDecoration: 'none', color: 'inherit' }}
-                          title={locale === 'vi' ? 'Xem chi tiết hóa đơn' : 'View invoice details'}
+                          style={{
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 700,
+                            letterSpacing: '0.02em',
+                          }}
+                          title={inv.title ? `${invoiceIdStr} (${inv.title})` : invoiceIdStr}
                         >
-                          {inv.title || `INV-${displayId}`}
+                          {invoiceIdStr}
                         </Link>
                       </td>
                       <td

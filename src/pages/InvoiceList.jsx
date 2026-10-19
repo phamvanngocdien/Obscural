@@ -288,7 +288,9 @@ export default function InvoiceList() {
                   <Link key={inv.id} to={`/invoices/${inv.id}`} className="invoice-item">
                     <div className="invoice-item-left">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="invoice-item-title">{inv.title || `INV-${String(inv.id).slice(0, 6)}`}</span>
+                        <span className="invoice-item-title" style={{ fontFamily: 'var(--font-mono)' }}>
+                          {inv.id ? inv.id.slice(0, 8) : (inv.title || 'invoice_id')}
+                        </span>
                         <span
                           style={{
                             fontSize: '9px',
@@ -305,8 +307,13 @@ export default function InvoiceList() {
                           {isRecipient ? (locale === 'vi' ? 'Cần trả' : 'Payer') : (locale === 'vi' ? 'Đã tạo' : 'Issuer')}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'wrap' }}>
                         <span className="invoice-item-date">{new Date(inv.created_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US')}</span>
+                        {inv.title && inv.title !== inv.id && inv.title !== (inv.id && inv.id.slice(0, 8)) && (
+                          <span style={{ fontSize: '11px', color: 'rgba(220, 220, 240, 0.65)' }}>
+                            · {inv.title}
+                          </span>
+                        )}
                         <span className="invoice-item-recipient" style={{ color: isRecipient ? 'rgba(251, 191, 36, 0.9)' : 'rgba(200, 200, 220, 0.7)' }}>
                           {isRecipient ? '← ' : '→ '}
                           {isRecipient ? (locale === 'vi' ? 'Từ: ' : 'From: ') : (locale === 'vi' ? 'Đến: ' : 'To: ')}
