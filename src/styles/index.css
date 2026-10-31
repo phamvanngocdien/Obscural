@@ -115,6 +115,10 @@
   /* ── Layout ── */
   --sidebar-width: 260px;
   --max-content-width: 1100px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
 
   /* ── Z-index ── */
   --z-bg: 0;
@@ -569,11 +573,65 @@ input::placeholder, textarea::placeholder {
   z-index: 99999 !important;
 }
 
+/* Responsive Utility Classes */
+.hide-mobile {
+  display: block;
+}
+
+.show-mobile {
+  display: none !important;
+}
+
+.hide-desktop {
+  display: none !important;
+}
+
 @media (max-width: 768px) {
   .heading-1 { font-size: var(--text-3xl); }
   .heading-2 { font-size: var(--text-2xl); }
   .container { padding: 0 var(--space-4); }
   .grid-3, .grid-2 { grid-template-columns: 1fr; }
+
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .show-mobile {
+    display: flex !important;
+  }
+
+  .hide-desktop {
+    display: block !important;
+  }
+
+  /* Prevent iOS Safari auto-zoom on input focus */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  button, a, input, select {
+    touch-action: manipulation;
+  }
+}
+
+@keyframes slideUpMobile {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInMobile {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

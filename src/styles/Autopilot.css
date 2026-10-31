@@ -963,3 +963,61 @@
   color: #10B981;
 }
 
+/* ── Mobile Responsive Autopilot ── */
+@media (max-width: 768px) {
+  .ap-page {
+    gap: var(--space-4);
+  }
+
+  .ap-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .ap-scan-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  .ap-latch-bar {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .ap-section {
+    padding: 16px 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .ap-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ap-rule-card {
+    padding: 14px;
+  }
+
+  .ap-rule-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ap-rule-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .ap-trust-hover-card {
+    width: calc(100vw - 32px) !important;
+    max-width: 330px;
+  }
+}
+

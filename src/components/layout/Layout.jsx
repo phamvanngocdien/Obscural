@@ -122,7 +122,11 @@ export function LanguageSwitcher({ className = '' }) {
 
 export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [copiedAddr, setCopiedAddr] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const notifRef = useRef(null);
+  const profileRef = useRef(null);
   const { t, locale } = useI18nStore();
   const [readNotifIds, setReadNotifIds] = useState(() => {
     try {
@@ -293,6 +297,27 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
     }
   }, [notifications, user?.address]);
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotifications(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleCopyAddress = (addr) => {
+    if (!addr) return;
+    navigator.clipboard.writeText(addr);
+    setCopiedAddr(true);
+    toast.success(locale === 'vi' ? 'Đã sao chép địa chỉ ví!' : 'Wallet address copied!');
+    setTimeout(() => setCopiedAddr(false), 2000);
+  };
+
   const handleNotifClick = (id) => {
     setReadNotifIds((prev) => {
       const next = Array.from(new Set([...prev, id]));
@@ -302,6 +327,10 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
     setShowNotifications(false);
   };
+
+  const currentAddress = user?.address || wallet?.address || '';
+  const displayAddress = currentAddress ? `${currentAddress.slice(0, 6)}...${currentAddress.slice(-4)}` : '';
+  const userInitial = (user?.name || user?.email || currentAddress || 'U').charAt(0).toUpperCase();
 
   return (
     <div className="layout">
@@ -317,80 +346,204 @@ export default function Layout({ user, wallet, onConnectWallet, onDisconnect }) 
             <LanguageSwitcher />
 
             <div
-              className="layout-notification"
-              onClick={() => setShowNotifications(!showNotifications)}
-              title={locale === 'vi' ? 'Thông báo' : 'Notifications'}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && setShowNotifications(!showNotifications)}
+              ref={notifRef}
+              style={{ position: 'relative' }}
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              {notifCount > 0 && (
-                <span className="layout-notification-badge">
-                  {notifCount > 9 ? '9+' : notifCount}
-                </span>
+              <div
+                className="layout-notification"
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  setShowProfileMenu(false);
+                }}
+                title={locale === 'vi' ? 'Thông báo' : 'Notifications'}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setShowNotifications(!showNotifications)}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {notifCount > 0 && (
+                  <span className="layout-notification-badge">
+                    {notifCount > 9 ? '9+' : notifCount}
+                  </span>
+                )}
+              </div>
+
+              {/* Notification dropdown */}
+              {showNotifications && (
+                <div className="layout-notif-dropdown" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  <div className="layout-notif-header">
+                    <span>{t('topbar.notifications')} ({notifications.length})</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {notifCount > 0 && (
+                        <button
+                          onClick={handleMarkAllRead}
+                          style={{ fontSize: '10px', color: 'var(--color-primary, #8B7AFF)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          {t('topbar.markAllRead')}
+                        </button>
+                      )}
+                      <button onClick={() => setShowNotifications(false)} className="layout-notif-close">✕</button>
+                    </div>
+                  </div>
+
+                  <div className="layout-notif-list">
+                    {notifications.map((n) => (
+                      <Link
+                        key={n.id}
+                        to={n.link}
+                        onClick={() => handleNotifClick(n.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '12px 14px',
+                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          textDecoration: 'none',
+                          color: 'inherit',
+                          background: !n.isRead ? 'rgba(139, 92, 246, 0.08)' : (n.type === 'warning' ? 'rgba(255, 107, 122, 0.05)' : 'transparent'),
+                          transition: 'background 0.15s ease',
+                          position: 'relative',
+                        }}
+                      >
+                        <span style={{ fontSize: '18px', marginTop: '1px' }}>{n.icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: n.isRead ? 500 : 700, color: '#FFFFFF' }}>{n.title}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {!n.isRead && (
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary, #8B5CF6)', boxShadow: '0 0 6px var(--color-primary, #8B5CF6)' }} />
+                              )}
+                              <span style={{ fontSize: '10px', color: 'rgba(180, 180, 200, 0.6)' }}>{n.time}</span>
+                            </div>
+                          </div>
+                          <p style={{ fontSize: '11px', color: 'rgba(220, 220, 235, 0.75)', margin: 0, lineHeight: 1.4, wordBreak: 'break-word' }}>{n.desc}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Profile Menu Trigger (Visible on mobile & desktop) */}
+            <div ref={profileRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="layout-profile-btn"
+                onClick={() => {
+                  setShowProfileMenu(!showProfileMenu);
+                  setShowNotifications(false);
+                }}
+                aria-label="User Account Menu"
+                title={user?.email || currentAddress}
+              >
+                <div className="layout-profile-avatar">
+                  {userInitial}
+                </div>
+                <span className="layout-profile-dot" />
+                {displayAddress && (
+                  <span className="layout-profile-addr hide-mobile">{displayAddress}</span>
+                )}
+              </button>
+
+              {/* Profile Dropdown Sheet */}
+              {showProfileMenu && (
+                <div className="layout-profile-dropdown">
+                  <div className="layout-profile-dropdown-user">
+                    <div className="layout-profile-avatar" style={{ width: '36px', height: '36px', fontSize: '14px' }}>
+                      {userInitial}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {user?.name || (user?.email ? user.email.split('@')[0] : 'Web3 User')}
+                        </span>
+                        <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', background: 'rgba(52, 211, 153, 0.15)', color: '#34D399', fontWeight: 600 }}>
+                          Sepolia
+                        </span>
+                      </div>
+                      {currentAddress && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'rgba(180, 180, 200, 0.7)' }}>
+                            {displayAddress}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAddress(currentAddress)}
+                            style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', color: copiedAddr ? '#34D399' : '#8B7AFF' }}
+                            title="Copy Address"
+                          >
+                            {copiedAddr ? '✓' : '⧉'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="layout-profile-dropdown-actions">
+                    <Link
+                      to="/autopilot"
+                      className="layout-profile-dropdown-link"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="10" rx="2"/>
+                        <circle cx="9" cy="16" r="1.5" fill="currentColor"/>
+                        <circle cx="15" cy="16" r="1.5" fill="currentColor"/>
+                        <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                      </svg>
+                      <span>{t('nav.autopilot', 'Autopilot AI')}</span>
+                    </Link>
+
+                    <Link
+                      to="/settings"
+                      className="layout-profile-dropdown-link"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                      <span>{t('nav.settings', 'Settings')}</span>
+                    </Link>
+
+                    <Link
+                      to="/contact"
+                      className="layout-profile-dropdown-link"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                      </svg>
+                      <span>{t('nav.contact', 'Contacts')}</span>
+                    </Link>
+                  </div>
+
+                  {onDisconnect && (
+                    <button
+                      type="button"
+                      className="layout-profile-disconnect"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        onDisconnect();
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                      {locale === 'vi' ? 'Ngắt kết nối ví' : 'Disconnect Wallet'}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
-
-          {/* Notification dropdown */}
-          {showNotifications && (
-            <div className="layout-notif-dropdown" style={{ width: '320px', maxHeight: '420px', overflowY: 'auto' }}>
-              <div className="layout-notif-header">
-                <span>{t('topbar.notifications')} ({notifications.length})</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {notifCount > 0 && (
-                    <button
-                      onClick={handleMarkAllRead}
-                      style={{ fontSize: '10px', color: 'var(--color-primary, #8B7AFF)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                    >
-                      {t('topbar.markAllRead')}
-                    </button>
-                  )}
-                  <button onClick={() => setShowNotifications(false)} className="layout-notif-close">✕</button>
-                </div>
-              </div>
-
-              <div className="layout-notif-list">
-                {notifications.map((n) => (
-                  <Link
-                    key={n.id}
-                    to={n.link}
-                    onClick={() => handleNotifClick(n.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '10px',
-                      padding: '12px 16px',
-                      borderBottom: '1px solid rgba(255,255,255,0.06)',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      background: !n.isRead ? 'rgba(139, 92, 246, 0.08)' : (n.type === 'warning' ? 'rgba(255, 107, 122, 0.05)' : 'transparent'),
-                      transition: 'background 0.15s ease',
-                      position: 'relative',
-                    }}
-                  >
-                    <span style={{ fontSize: '18px', marginTop: '1px' }}>{n.icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: n.isRead ? 500 : 700, color: '#FFFFFF' }}>{n.title}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {!n.isRead && (
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-primary, #8B5CF6)', boxShadow: '0 0 6px var(--color-primary, #8B5CF6)' }} />
-                          )}
-                          <span style={{ fontSize: '10px', color: 'rgba(180, 180, 200, 0.6)' }}>{n.time}</span>
-                        </div>
-                      </div>
-                      <p style={{ fontSize: '11px', color: 'rgba(220, 220, 235, 0.75)', margin: 0, lineHeight: 1.4 }}>{n.desc}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <div className="layout-content">
           <Outlet context={{ user, wallet, onConnectWallet, onDisconnect }} />

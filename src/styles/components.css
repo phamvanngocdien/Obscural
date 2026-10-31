@@ -659,6 +659,51 @@ textarea.input-field {
   to { transform: translateX(100%); opacity: 0; }
 }
 
+/* ── Mobile Responsive Components ── */
+@media (max-width: 768px) {
+  .modal-backdrop {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0;
+    max-height: 85vh;
+  }
+
+  .modal-body {
+    padding: var(--space-4);
+  }
+
+  .toast-container {
+    top: auto;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    right: 12px;
+    align-items: stretch;
+  }
+
+  .toast {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .btn {
+    touch-action: manipulation;
+  }
+
+  .btn-md {
+    min-height: 42px;
+  }
+
+  .btn-lg {
+    min-height: 48px;
+  }
+}
+
 /* ========================================
    Language Switcher — Cosmic Glass Style
    ======================================== */

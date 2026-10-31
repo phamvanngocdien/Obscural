@@ -625,21 +625,57 @@
 }
 
 @media (max-width: 700px) {
+  .landing-header {
+    padding: 10px 14px;
+  }
+  .landing-logo-name {
+    font-size: 16px;
+  }
   .landing-content {
-    padding: 0 var(--space-4);
-    gap: var(--space-12);
+    padding: 0 var(--space-3);
+    gap: var(--space-8);
+  }
+  .landing-hero-section {
+    padding: var(--space-8) 0 var(--space-4);
+  }
+  .landing-title {
+    font-size: clamp(2.2rem, 11vw, 3.2rem);
+  }
+  .landing-desc {
+    font-size: 13px;
+  }
+  .landing-cta-card {
+    padding: 18px 14px;
+    width: 100%;
   }
   .landing-features-grid,
   .landing-workflow-grid,
   .landing-metrics-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .landing-metric-card {
+    padding: 14px 16px;
+  }
+  .landing-feature-card {
+    padding: 18px 16px;
+  }
+  .landing-workflow-card {
+    padding: 18px 16px;
   }
   .landing-cockpit-card {
     flex-direction: column;
     align-items: flex-start;
-    padding: var(--space-6);
+    padding: var(--space-5) var(--space-4);
+    gap: 16px;
+  }
+  .landing-cockpit-title {
+    font-size: 1.4rem;
   }
   .landing-launch-btn {
+    width: 100%;
     max-width: 100%;
+    min-height: 44px;
+    font-size: 14px;
   }
 }

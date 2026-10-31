@@ -452,3 +452,27 @@ input:checked + .settings-slider:before {
 .settings-input::placeholder {
   color: var(--text-tertiary);
 }
+
+/* ── Mobile Responsive Settings ── */
+@media (max-width: 768px) {
+  .settings-page {
+    gap: var(--space-4);
+  }
+
+  .settings-section {
+    padding: 16px 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .settings-input-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .settings-btn-disconnect {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 13px;
+  }
+}

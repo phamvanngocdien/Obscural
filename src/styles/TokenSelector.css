@@ -300,3 +300,21 @@
   flex-shrink: 0;
   color: #8B7AFF;
 }
+
+/* ── Mobile Responsive Token Selector ── */
+@media (max-width: 768px) {
+  .token-dropdown-menu {
+    max-height: 260px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .token-item-btn {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  .token-selector-trigger {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+}

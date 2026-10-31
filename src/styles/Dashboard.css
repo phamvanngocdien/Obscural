@@ -370,3 +370,100 @@
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
+
+/* ── Mobile Responsive Dashboard ── */
+@media (max-width: 768px) {
+  .dashboard {
+    gap: var(--space-4);
+  }
+
+  .dash-wallet {
+    padding: var(--space-6) var(--space-4) var(--space-5);
+    border-radius: var(--radius-lg);
+  }
+
+  .dash-wallet-title {
+    margin-bottom: var(--space-2);
+  }
+
+  .dash-balance-whole {
+    font-size: clamp(2.2rem, 8.5vw, 3.2rem);
+  }
+
+  .dash-balance-symbol,
+  .dash-balance-decimal {
+    font-size: 1.25rem;
+  }
+
+  .dash-token-balance {
+    margin-bottom: var(--space-5);
+  }
+
+  .dash-wallet-actions {
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .dash-wallet-btn {
+    flex: 1;
+    padding: 11px 12px;
+    font-size: 13px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dash-activity-item {
+    padding: 10px 12px;
+  }
+
+  .dash-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+    border-radius: var(--radius-sm);
+  }
+
+  .dash-activity-name {
+    font-size: 13px;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dash-activity-amount {
+    font-size: 12px;
+  }
+
+  .dash-filter-dropdown {
+    right: 0;
+    width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-activity-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .dash-activity-left {
+    width: 100%;
+  }
+
+  .dash-activity-right {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    width: 100%;
+  }
+
+  .dash-activity-name {
+    max-width: 180px;
+  }
+}

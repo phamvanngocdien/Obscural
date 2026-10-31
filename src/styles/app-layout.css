@@ -187,22 +187,181 @@
   color: var(--text-tertiary);
 }
 
+/* ── Glass User Profile Button in Topbar ── */
+.layout-profile-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.layout-profile-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-accent);
+  box-shadow: 0 0 16px rgba(139, 122, 255, 0.15);
+}
+
+.layout-profile-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.layout-profile-dot {
+  position: absolute;
+  bottom: 4px;
+  left: 23px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  border: 2px solid #1C1C20;
+}
+
+.layout-profile-addr {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.layout-profile-dropdown {
+  position: absolute;
+  top: 54px;
+  right: var(--space-8);
+  width: 280px;
+  background: rgba(26, 26, 32, 0.96);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl), 0 0 30px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  z-index: var(--z-dropdown);
+  overflow: hidden;
+  animation: fadeInDown 150ms var(--ease-spring);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.layout-profile-dropdown-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.layout-profile-dropdown-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layout-profile-dropdown-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.layout-profile-dropdown-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.layout-profile-disconnect {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  border-radius: var(--radius-md);
+  color: #FB7185;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-top: 4px;
+}
+
+.layout-profile-disconnect:hover {
+  background: rgba(244, 63, 94, 0.2);
+  color: #FDA4AF;
+}
+
 @media (max-width: 768px) {
+  .sidebar,
+  .hide-mobile {
+    display: none !important;
+  }
   .layout-main {
     margin-left: 0;
+    width: 100%;
+    min-width: 0;
   }
   .layout-topbar {
-    padding: var(--space-3) var(--space-4);
+    padding: 8px 12px;
   }
   .layout-topbar-brand {
     display: flex;
   }
+  .layout-topbar-title {
+    font-size: 13px;
+  }
+  .layout-topbar-actions {
+    gap: 8px;
+  }
   .layout-content {
-    padding: var(--space-4);
+    padding: 14px 12px calc(80px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: 100%;
   }
   .layout-notif-dropdown {
-    right: var(--space-4);
-    width: calc(100vw - 32px);
+    position: fixed;
+    top: 56px;
+    left: 10px;
+    right: 10px;
+    width: auto !important;
+    max-width: calc(100vw - 20px) !important;
+  }
+  .layout-profile-dropdown {
+    position: fixed;
+    top: 56px;
+    left: 10px;
+    right: 10px;
+    width: auto !important;
+    max-width: calc(100vw - 20px) !important;
   }
 }
 

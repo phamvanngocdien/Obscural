@@ -441,18 +441,137 @@
   line-height: 1.5;
 }
 
-@media (max-width: 600px) {
-  .id-card {
-    padding: var(--space-4);
+@media (max-width: 768px) {
+  .invoice-page {
+    height: auto;
+    min-height: calc(100vh - 140px);
+    overflow: visible;
   }
+
+  .invoice-top-fixed {
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
+  }
+
+  .invoice-page-title {
+    font-size: var(--text-xl);
+  }
+
+  .invoice-hero-card {
+    max-width: 100%;
+  }
+
+  .invoice-hero-video {
+    max-height: 190px;
+  }
+
+  .invoice-create-btn {
+    max-width: 100%;
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  .invoice-list-scroll {
+    overflow-y: visible;
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-4);
+  }
+
+  .invoice-item {
+    padding: 10px 12px;
+  }
+
+  .invoice-item-title {
+    font-size: 12px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Invoice Detail Mobile Styles */
+  .id-page {
+    width: 100%;
+    padding: var(--space-1) 0 var(--space-6);
+  }
+
+  .id-top-bar {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .id-top-bar > div {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .id-action-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 38px;
+    font-size: 11px;
+  }
+
+  .id-card {
+    padding: 16px 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .id-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
   .id-parties {
     flex-direction: column;
     gap: var(--space-4);
   }
-  .id-items-header, .id-items-row {
-    grid-template-columns: 1.5fr 0.5fr 1fr;
-  }
-  .id-items-header .id-col-total, .id-items-row .id-col-total {
+
+  .id-items-header {
     display: none;
+  }
+
+  .id-items-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 0;
+  }
+
+  .id-items-row > span:first-child {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .id-summary {
+    width: 100%;
+  }
+
+  .id-summary-row {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .id-footer-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .id-footer-actions button,
+  .id-footer-actions a {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .invoice-item-title {
+    max-width: 120px;
   }
 }
